@@ -18,3 +18,4 @@ dart test
 * [x] Query placeholders
 * [x] Transactions
 * [ ] Prepared statements
+* [ ] SSL connection
