@@ -2,6 +2,14 @@
 
 See [examples](examples/) directory for examples and usage
 
+### Tests
+
+To run tests execute
+
+```bash
+dart test
+```
+
 ### Roadmap
 
 * [x] Auth with mysql_native_password
