@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:mysql/mysql_protocol.dart';
+import 'package:mysql_client/mysql_protocol.dart';
 
 enum _MySQLConnectionState {
   fresh,

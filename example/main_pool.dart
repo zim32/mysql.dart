@@ -1,4 +1,4 @@
-import 'package:mysql/mysql_client.dart';
+import 'package:mysql_client/mysql_client.dart';
 
 Future<void> main(List<String> arguments) async {
   // create connections pool
