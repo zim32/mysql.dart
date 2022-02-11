@@ -5,8 +5,8 @@ Future<void> main(List<String> arguments) async {
   final pool = MySQLConnectionPool(
     host: '127.0.0.1',
     port: 3306,
-    userName: 'zim32',
-    password: 'your password',
+    userName: 'your_user',
+    password: 'your_password',
     maxConnections: 10,
     databaseName: 'your_database_name', // optional,
   );
