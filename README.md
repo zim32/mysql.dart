@@ -1,6 +1,6 @@
 ### Native MySQL client written in Dart for Dart
 
-See [examples](examples/) directory for examples and usage
+See [example](example/) directory for examples and usage
 
 ### Tests
 
