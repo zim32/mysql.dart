@@ -88,7 +88,7 @@ class MySQLPacketCommStmtExecute extends MySQLPacketPayload {
       final bitmapSize = ((params.length + 7) / 8).floor();
       buffer.writeInt(bitmapSize, 0);
 
-      // new-paras-bound flag
+      // new-param-bound flag
       buffer.writeUint8(1);
 
       // write param types

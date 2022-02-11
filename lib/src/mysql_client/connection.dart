@@ -361,6 +361,9 @@ class MySQLConnection {
       if (payload is MySQLPacketError) {
         completer.completeError("MySQL error: " + payload.errorMessage);
         return;
+      } else if (payload is MySQLPacketOK) {
+        completer.complete(EmptyResultSet(okPacket: payload));
+        return;
       } else if (payload is MySQLPacketBinaryResultSet) {
         completer.complete(PreparedStmtResultSet._(resultSetPacket: payload));
         return;

@@ -992,14 +992,25 @@ class MySQLBinaryResultSetRowPacket {
 
     // parse binary data
     for (int x = 0; x < colDefs.length; x++) {
-      final parseResult = parseBinaryColumnData(
-        colDefs[x].type,
-        byteData,
-        buffer,
-        offset,
-      );
-      offset += parseResult.item2;
-      values.add(parseResult.item1);
+      // check null bitmap first
+      final bitmapByteIndex = ((x + 2) / 8).floor();
+      final bitmapBitIndex = (x + 2) % 8;
+
+      final byteToCheck = nullBitmap[bitmapByteIndex];
+      final isNull = (byteToCheck & (1 << bitmapBitIndex)) != 0;
+
+      if (isNull) {
+        values.add(null);
+      } else {
+        final parseResult = parseBinaryColumnData(
+          colDefs[x].type,
+          byteData,
+          buffer,
+          offset,
+        );
+        offset += parseResult.item2;
+        values.add(parseResult.item1);
+      }
     }
 
     return MySQLBinaryResultSetRowPacket(

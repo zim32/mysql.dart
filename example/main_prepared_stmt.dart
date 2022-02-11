@@ -16,15 +16,13 @@ Future<void> main(List<String> arguments) async {
 
   print("Connected");
 
-  final stmt = await conn.prepare("SELECT * FROM book");
-  print("prepared");
-  final result = await stmt.execute([]);
-  print("executed");
+  var stmt = await conn.prepare("SELECT * FROM book");
+  var result = await stmt.execute([]);
 
   for (final row in result.rows) {
     print(row.assoc());
   }
 
   // close all connections
-  // await conn.close();
+  await conn.close();
 }

@@ -40,10 +40,44 @@ Tuple2<String, int> parseBinaryColumnData(
   int startOffset,
 ) {
   switch (columnType) {
+    case mysqlColumnTypeTiny:
+      final value = data.getInt8(startOffset);
+      return Tuple2(value.toString(), 1);
+    case mysqlColumnTypeShort:
+      final value = data.getInt16(startOffset, Endian.little);
+      return Tuple2(value.toString(), 2);
     case mysqlColumnTypeLong:
+    case mysqlColumnTypeInt24:
       final value = data.getInt32(startOffset, Endian.little);
       return Tuple2(value.toString(), 4);
+    case mysqlColumnTypeLongLong:
+      final value = data.getInt64(startOffset, Endian.little);
+      return Tuple2(value.toString(), 8);
+    case mysqlColumnTypeFloat:
+      final value = data.getFloat32(startOffset, Endian.little);
+      return Tuple2(value.toString(), 4);
+    case mysqlColumnTypeDouble:
+      final value = data.getFloat64(startOffset, Endian.little);
+      return Tuple2(value.toString(), 8);
+    case mysqlColumnTypeDate:
+    case mysqlColumnTypeDateTime:
+    case mysqlColumnTypeTimestamp:
+      throw UnimplementedError("column type not implemented");
+    case mysqlColumnTypeTime:
+      throw UnimplementedError("column type not implemented");
+    case mysqlColumnTypeString:
     case mysqlColumnTypeVarString:
+    case mysqlColumnTypeVarChar:
+    case mysqlColumnTypeEnum:
+    case mysqlColumnTypeSet:
+    case mysqlColumnTypeLongBlob:
+    case mysqlColumnTypeMediumBlob:
+    case mysqlColumnTypeBlob:
+    case mysqlColumnTypeTinyBlob:
+    case mysqlColumnTypeGeometry:
+    case mysqlColumnTypeBit:
+    case mysqlColumnTypeDecimal:
+    case mysqlColumnTypeNewDecimal:
       return buffer.getLengthEncodedString(startOffset);
   }
 
