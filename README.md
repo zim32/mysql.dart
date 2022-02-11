@@ -17,3 +17,4 @@ dart test
 * [x] Connection pool
 * [x] Query placeholders
 * [x] Transactions
+* [ ] Prepared statements
