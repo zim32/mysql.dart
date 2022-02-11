@@ -14,7 +14,7 @@ See [example](example/) directory for examples and usage
 
 ### Usage
 
-#### Create connection
+#### Create connection pool
 
 ```dart
 final pool = MySQLConnectionPool(
@@ -30,7 +30,7 @@ final pool = MySQLConnectionPool(
 #### Query database
 
 ```dart
-var result = await conn.execute("SELECT * FROM book WHERE id = :id", {"id": 1});
+var result = await pool.execute("SELECT * FROM book WHERE id = :id", {"id": 1});
 ```
 
 #### Print result
