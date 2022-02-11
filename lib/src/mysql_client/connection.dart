@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:buffer/buffer.dart';
 import 'package:mysql_client/mysql_protocol.dart';
+import 'package:mysql_client/mysql_protocol_extension.dart';
+import 'package:tuple/tuple.dart';
 
 enum _MySQLConnectionState {
   fresh,
@@ -261,6 +264,118 @@ class MySQLConnection {
     return query;
   }
 
+  Future<PreparedStmt> prepare(String query) async {
+    if (!_connected) {
+      throw Exception("Can not prepare stmt: connecion closed");
+    }
+
+    // wait for ready state
+    if (_state != _MySQLConnectionState.connectionEstablished) {
+      await _waitForState(_MySQLConnectionState.connectionEstablished)
+          .timeout(Duration(seconds: 10));
+    }
+
+    _state = _MySQLConnectionState.waitingCommandResponse;
+
+    final payload = MySQLPacketCommStmtPrepare(query: query);
+
+    final packet = MySQLPacket(
+      sequenceID: 0,
+      payload: payload,
+      payloadLength: 0,
+    );
+
+    final completer = Completer<PreparedStmt>();
+
+    _responseCallback = (data) {
+      final packet = MySQLPacket.decodeCommPrepareStmtResponsePacket(data);
+      final payload = packet.payload;
+      _state = _MySQLConnectionState.connectionEstablished;
+
+      if (payload is MySQLPacketError) {
+        completer.completeError("MySQL error: " + payload.errorMessage);
+        return;
+      } else if (payload is MySQLPacketStmtPrepareOK) {
+        completer.complete(PreparedStmt._(
+          preparedPacket: payload,
+          connection: this,
+        ));
+        return;
+      } else {
+        completer.completeError(
+          "Unexpected payload received in response to COM_STMT_PREPARE request",
+        );
+      }
+    };
+
+    _socket.add(packet.encode());
+
+    return completer.future;
+  }
+
+  Future<IResultSet> _executePreparedStmt(
+    PreparedStmt stmt,
+    List<dynamic> params,
+  ) async {
+    if (!_connected) {
+      throw Exception("Can not execute prepared stmt: connecion closed");
+    }
+
+    // wait for ready state
+    if (_state != _MySQLConnectionState.connectionEstablished) {
+      await _waitForState(_MySQLConnectionState.connectionEstablished)
+          .timeout(Duration(seconds: 10));
+    }
+
+    _state = _MySQLConnectionState.waitingCommandResponse;
+
+    // prepare params
+    List<Tuple2<int, Uint8List>> binaryParams = []; // (type, value)
+    for (final param in params) {
+      // convert all to string
+      final String value = param.toString();
+      final byteWriter = ByteDataWriter(endian: Endian.little);
+      byteWriter.writeVariableEncInt(value.length);
+      byteWriter.write(value.codeUnits);
+      binaryParams.add(Tuple2(mysqlColumnTypeVarString, byteWriter.toBytes()));
+    }
+
+    final payload = MySQLPacketCommStmtExecute(
+      stmtID: stmt._preparedPacket.stmtID,
+      params: binaryParams,
+    );
+
+    final packet = MySQLPacket(
+      sequenceID: 0,
+      payload: payload,
+      payloadLength: 0,
+    );
+
+    final completer = Completer<IResultSet>();
+
+    _responseCallback = (data) {
+      final packet = MySQLPacket.decodeCommPrepareStmtExecResponsePacket(data);
+      final payload = packet.payload;
+      _state = _MySQLConnectionState.connectionEstablished;
+
+      if (payload is MySQLPacketError) {
+        completer.completeError("MySQL error: " + payload.errorMessage);
+        return;
+      } else if (payload is MySQLPacketBinaryResultSet) {
+        completer.complete(PreparedStmtResultSet._(resultSetPacket: payload));
+        return;
+      } else {
+        completer.completeError(
+          "Unexpected payload received in response to COM_STMT_EXEC request",
+        );
+      }
+    };
+
+    _socket.add(packet.encode());
+
+    return completer.future;
+  }
+
   String _escapeString(String value) {
     value = value.replaceAll(r"\", r'\\');
     value = value.replaceAll(r"'", r"''");
@@ -342,7 +457,47 @@ class ResultSet implements IResultSet {
     for (final _row in _resultSetPacket.rows) {
       yield ResultSetRow._(
         colDefs: _resultSetPacket.columns,
-        resultSetRowPacket: _row,
+        values: _row.values,
+      );
+    }
+  }
+
+  @override
+  Iterable<ResultSetColumn> get cols {
+    return _resultSetPacket.columns.map(
+      (e) => ResultSetColumn(
+        name: e.name,
+        type: e.type,
+      ),
+    );
+  }
+}
+
+class PreparedStmtResultSet implements IResultSet {
+  final MySQLPacketBinaryResultSet _resultSetPacket;
+
+  PreparedStmtResultSet._({
+    required MySQLPacketBinaryResultSet resultSetPacket,
+  }) : _resultSetPacket = resultSetPacket;
+
+  @override
+  int get numOfColumns => _resultSetPacket.columns.length;
+
+  @override
+  int get numOfRows => _resultSetPacket.rows.length;
+
+  @override
+  BigInt get affectedRows => BigInt.zero;
+
+  @override
+  BigInt get lastInsertID => BigInt.zero;
+
+  @override
+  Iterable<ResultSetRow> get rows sync* {
+    for (final _row in _resultSetPacket.rows) {
+      yield ResultSetRow._(
+        colDefs: _resultSetPacket.columns,
+        values: _row.values,
       );
     }
   }
@@ -384,22 +539,22 @@ class EmptyResultSet implements IResultSet {
 
 class ResultSetRow {
   final List<MySQLColumnDefinitionPacket> _colDefs;
-  final MySQLResultSetRowPacket _resultSetRowPacket;
+  final List<String?> _values;
 
   ResultSetRow._({
     required List<MySQLColumnDefinitionPacket> colDefs,
-    required MySQLResultSetRowPacket resultSetRowPacket,
+    required List<String?> values,
   })  : _colDefs = colDefs,
-        _resultSetRowPacket = resultSetRowPacket;
+        _values = values;
 
   int get numOfColumns => _colDefs.length;
 
   String colAt(int colIndex) {
-    if (colIndex >= _resultSetRowPacket.values.length) {
+    if (colIndex >= _values.length) {
       throw Exception("Column index is out of range");
     }
 
-    final value = _resultSetRowPacket.values[colIndex]!;
+    final value = _values[colIndex]!;
 
     return value;
   }
@@ -412,11 +567,11 @@ class ResultSetRow {
       throw Exception("There is no column with name: $columnName");
     }
 
-    if (colIndex >= _resultSetRowPacket.values.length) {
+    if (colIndex >= _values.length) {
       throw Exception("Column index is out of range");
     }
 
-    final value = _resultSetRowPacket.values[colIndex]!;
+    final value = _values[colIndex]!;
 
     return value;
   }
@@ -427,7 +582,7 @@ class ResultSetRow {
     int colIndex = 0;
 
     for (final colDef in _colDefs) {
-      result[colDef.name] = _resultSetRowPacket.values[colIndex];
+      result[colDef.name] = _values[colIndex];
       colIndex++;
     }
 
@@ -443,4 +598,27 @@ class ResultSetColumn {
     required this.name,
     required this.type,
   });
+}
+
+class PreparedStmt {
+  MySQLPacketStmtPrepareOK _preparedPacket;
+  MySQLConnection _connection;
+
+  PreparedStmt._({
+    required MySQLPacketStmtPrepareOK preparedPacket,
+    required MySQLConnection connection,
+  })  : _preparedPacket = preparedPacket,
+        _connection = connection;
+
+  int get numOfParams => _preparedPacket.numOfParams;
+
+  Future<IResultSet> execute(List<dynamic> params) async {
+    if (numOfParams != params.length) {
+      throw Exception(
+        "Can not execute prepared stmt: number of passed params != number of prepared params",
+      );
+    }
+
+    return _connection._executePreparedStmt(this, params);
+  }
 }

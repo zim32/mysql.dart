@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:buffer/buffer.dart';
 import 'package:hex/hex.dart';
 import 'package:test/test.dart';
 import 'package:mysql_client/mysql_protocol.dart';
@@ -93,6 +94,59 @@ void main() {
         var actual = buff.getVariableEncInt(0);
         expect(actual.item1.toString(), '1099511627775');
         expect(actual.item2, 9);
+      });
+      test("test encoding int value 0", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(0);
+        expect(writer.toBytes(), [0x00]);
+      });
+      test("test encoding int value 1", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(1);
+        expect(writer.toBytes(), [0x01]);
+      });
+      test("test encoding int value 250", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(250);
+        expect(writer.toBytes(), [0xfa]);
+      });
+      test("test encoding int value 251", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(251);
+        expect(writer.toBytes(), [0xfc, 0xfb, 0x00]);
+      });
+      test("test encoding int value 252", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(252);
+        expect(writer.toBytes(), [0xfc, 0xfc, 0x00]);
+      });
+      test("test encoding int value 65536", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(65536);
+        expect(writer.toBytes(), [0xfd, 0x00, 0x00, 0x01]);
+      });
+      test("test encoding int value 65537", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(65537);
+        expect(writer.toBytes(), [0xfd, 0x01, 0x00, 0x01]);
+      });
+      test("test encoding int value 16777216", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(16777216);
+        expect(writer.toBytes(),
+            [0xfe, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
+      });
+      test("test encoding int value 16777217", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(16777217);
+        expect(writer.toBytes(),
+            [0xfe, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
+      });
+      test("test encoding int value 9223372036854775807", () {
+        final writer = ByteDataWriter(endian: Endian.little);
+        writer.writeVariableEncInt(9223372036854775807);
+        expect(writer.toBytes(),
+            [0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f]);
       });
     });
   });

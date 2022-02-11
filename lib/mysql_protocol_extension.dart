@@ -1,7 +1,8 @@
 import 'dart:typed_data';
+import 'package:buffer/buffer.dart';
 import 'package:tuple/tuple.dart';
 
-extension ParseUtils on Uint8List {
+extension MySQLUint8ListExtension on Uint8List {
   String getNullTerminatedString(int startOffset) {
     final tmp = Uint8List.sublistView(this, startOffset)
         .takeWhile((value) => value != 0);
@@ -31,7 +32,7 @@ extension ParseUtils on Uint8List {
   }
 }
 
-extension ByteDataParseUtils on ByteData {
+extension MySQLByteDataExtension on ByteData {
   Tuple2<BigInt, int> getVariableEncInt(int startOffset) {
     int firstByte = getUint8(startOffset);
 
@@ -89,5 +90,24 @@ extension ByteDataParseUtils on ByteData {
     bd.setUint8(3, 0);
 
     return bd.getUint32(0, Endian.little);
+  }
+}
+
+extension MySQLByteWriterExtension on ByteDataWriter {
+  writeVariableEncInt(int value) {
+    if (value < 251) {
+      writeUint8(value);
+    } else if (value >= 251 && value < 65536) {
+      writeUint8(0xfc);
+      writeInt16(value);
+    } else if (value >= 65536 && value < 16777216) {
+      writeUint8(0xfd);
+      final bd = ByteData(4);
+      bd.setInt32(0, value, Endian.little);
+      write(bd.buffer.asUint8List().sublist(0, 3));
+    } else if (value >= 16777216) {
+      writeUint8(0xfe);
+      writeInt64(value);
+    }
   }
 }

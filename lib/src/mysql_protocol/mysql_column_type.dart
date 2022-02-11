@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+import 'package:tuple/tuple.dart';
+import 'package:mysql_client/mysql_protocol_extension.dart';
+
 const mysqlColumnTypeDecimal = 0x00;
 const mysqlColumnTypeTiny = 0x01;
 const mysqlColumnTypeShort = 0x02;
@@ -28,3 +32,22 @@ const mysqlColumnTypeBlob = 0xfc;
 const mysqlColumnTypeVarString = 0xfd;
 const mysqlColumnTypeString = 0xfe;
 const mysqlColumnTypeGeometry = 0xff;
+
+Tuple2<String, int> parseBinaryColumnData(
+  int columnType,
+  ByteData data,
+  Uint8List buffer,
+  int startOffset,
+) {
+  switch (columnType) {
+    case mysqlColumnTypeLong:
+      final value = data.getInt32(startOffset, Endian.little);
+      return Tuple2(value.toString(), 4);
+    case mysqlColumnTypeVarString:
+      return buffer.getLengthEncodedString(startOffset);
+  }
+
+  throw UnimplementedError(
+    "Can not parse binary column data: column type $columnType is not implemented",
+  );
+}
