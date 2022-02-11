@@ -1,0 +1,17 @@
+name: mysql
+description: Native mysql client written in Dart
+version: 0.0.1
+# homepage: https://www.example.com
+
+environment:
+  sdk: '>=2.16.0 <3.0.0'
+
+
+dev_dependencies:
+  hex: ^0.2.0
+  lints: ^1.0.0
+  test: ^1.20.1
+dependencies: 
+  buffer: ^1.1.1
+  crypto: ^3.0.1
+  tuple: ^2.0.0
