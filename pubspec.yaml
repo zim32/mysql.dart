@@ -2,6 +2,13 @@ name: mysql
 description: Native MySQL client written in Dart
 version: 0.0.1
 homepage: https://github.com/zim32/mysql.dart
+repository: https://github.com/zim32/mysql.dart
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  windows:
 
 environment:
   sdk: '>=2.16.0 <3.0.0'
