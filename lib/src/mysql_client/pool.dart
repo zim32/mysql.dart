@@ -45,6 +45,11 @@ class MySQLConnectionPool {
     _activeConnections.clear();
   }
 
+  Future<PreparedStmt> prepare(String query) async {
+    final conn = await _getFreeConnection();
+    return conn.prepare(query);
+  }
+
   FutureOr<T> withConnection<T>(
       FutureOr<T> Function(MySQLConnection conn) callback) async {
     final conn = await _getFreeConnection();

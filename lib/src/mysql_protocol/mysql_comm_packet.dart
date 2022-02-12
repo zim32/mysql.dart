@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart' show ByteDataWriter;
 import 'package:mysql_client/mysql_protocol.dart';
 import 'package:mysql_client/mysql_protocol_extension.dart';
-import 'package:tuple/tuple.dart';
 
 class MySQLPacketCommInitDB extends MySQLPacketPayload {
   String schemaName;
@@ -142,6 +140,25 @@ class MySQLPacketCommQuit extends MySQLPacketPayload {
 
     // command type
     buffer.writeUint8(1);
+
+    return buffer.toBytes();
+  }
+}
+
+class MySQLPacketCommStmtClose extends MySQLPacketPayload {
+  int stmtID;
+
+  MySQLPacketCommStmtClose({
+    required this.stmtID,
+  });
+
+  @override
+  Uint8List encode() {
+    final buffer = ByteDataWriter(endian: Endian.little);
+
+    // command type
+    buffer.writeUint8(0x19);
+    buffer.writeUint32(stmtID);
 
     return buffer.toBytes();
   }

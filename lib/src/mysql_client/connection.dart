@@ -368,6 +368,30 @@ class MySQLConnection {
     return completer.future;
   }
 
+  Future<void> _deallocatePreparedStmt(PreparedStmt stmt) async {
+    if (!_connected) {
+      throw Exception("Can not execute query: connecion closed");
+    }
+
+    // wait for ready state
+    if (_state != _MySQLConnectionState.connectionEstablished) {
+      await _waitForState(_MySQLConnectionState.connectionEstablished)
+          .timeout(Duration(seconds: 10));
+    }
+
+    final payload = MySQLPacketCommStmtClose(
+      stmtID: stmt._preparedPacket.stmtID,
+    );
+
+    final packet = MySQLPacket(
+      sequenceID: 0,
+      payload: payload,
+      payloadLength: 0,
+    );
+
+    _socket.add(packet.encode());
+  }
+
   String _escapeString(String value) {
     value = value.replaceAll(r"\", r'\\');
     value = value.replaceAll(r"'", r"''");
@@ -612,5 +636,9 @@ class PreparedStmt {
     }
 
     return _connection._executePreparedStmt(this, params);
+  }
+
+  Future<void> deallocate() {
+    return _connection._deallocatePreparedStmt(this);
   }
 }
