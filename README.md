@@ -9,7 +9,7 @@ See [example](example/) directory for examples and usage
 * [x] Connection pool
 * [x] Query placeholders
 * [x] Transactions
-* [x] Prepared statements
+* [x] Prepared statements (real, not emulated)
 * [ ] SSL connection
 * [ ] Send data in binary form when using prepared stmts (do not convert all into strings)
 * [ ] Multiple resul sets
@@ -42,6 +42,30 @@ var result = await pool.execute("SELECT * FROM book WHERE id = :id", {"id": 1});
   }
 ```
 
+### Prepared statements
+
+This library supports real prepared statements (using binary protocol).
+
+#### Prepare statement
+
+```dart
+var stmt = await conn.prepare(
+  "INSERT INTO book (author_id, title, price, created_at) VALUES (?, ?, ?, ?)",
+);
+```
+
+#### Execute with params
+
+```dart
+await stmt.execute([null, 'Some book 1', 120, '2022-01-01']);
+await stmt.execute([null, 'Some book 2', 10, '2022-01-01']);
+```
+
+#### Deallocate prepared statement
+
+```dart
+await stmt.deallocate();
+```
 
 ### Tests
 
