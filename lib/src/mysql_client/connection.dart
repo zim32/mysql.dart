@@ -329,20 +329,9 @@ class MySQLConnection {
 
     _state = _MySQLConnectionState.waitingCommandResponse;
 
-    // prepare params
-    List<Tuple2<int, Uint8List>> binaryParams = []; // (type, value)
-    for (final param in params) {
-      // convert all to string
-      final String value = param.toString();
-      final byteWriter = ByteDataWriter(endian: Endian.little);
-      byteWriter.writeVariableEncInt(value.length);
-      byteWriter.write(value.codeUnits);
-      binaryParams.add(Tuple2(mysqlColumnTypeVarString, byteWriter.toBytes()));
-    }
-
     final payload = MySQLPacketCommStmtExecute(
       stmtID: stmt._preparedPacket.stmtID,
-      params: binaryParams,
+      params: params,
     );
 
     final packet = MySQLPacket(

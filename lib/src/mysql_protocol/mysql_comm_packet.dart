@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart' show ByteDataWriter;
-import 'package:mysql_client/src/mysql_protocol/mysql_packet.dart';
+import 'package:mysql_client/mysql_protocol.dart';
+import 'package:mysql_client/mysql_protocol_extension.dart';
 import 'package:tuple/tuple.dart';
 
 class MySQLPacketCommInitDB extends MySQLPacketPayload {
@@ -62,7 +64,7 @@ class MySQLPacketCommStmtPrepare extends MySQLPacketPayload {
 
 class MySQLPacketCommStmtExecute extends MySQLPacketPayload {
   int stmtID;
-  List<Tuple2<int, Uint8List>> params; // (type, value)
+  List<dynamic> params; // (type, value)
 
   MySQLPacketCommStmtExecute({
     required this.stmtID,
@@ -84,21 +86,48 @@ class MySQLPacketCommStmtExecute extends MySQLPacketPayload {
 
     // params
     if (params.isNotEmpty) {
-      // write null-bitmap
+      // create null-bitmap
       final bitmapSize = ((params.length + 7) / 8).floor();
-      buffer.writeInt(bitmapSize, 0);
+      final nullBitmap = Uint8List(bitmapSize);
 
-      // new-param-bound flag
+      // write null values into null bitmap
+      int paramIndex = 0;
+      for (final param in params) {
+        if (param == null) {
+          final paramByteIndex = ((paramIndex) / 8).floor();
+          final paramBitIndex = ((paramIndex) % 8);
+          nullBitmap[paramByteIndex] =
+              nullBitmap[paramByteIndex] | (1 << paramBitIndex);
+        }
+        paramIndex++;
+      }
+
+      // write null bitmap
+      buffer.write(nullBitmap);
+
+      // write new-param-bound flag
       buffer.writeUint8(1);
+
+      // write not null values
 
       // write param types
       for (final param in params) {
-        buffer.writeUint16(param.item1);
+        if (param != null) {
+          buffer.writeUint8(mysqlColumnTypeVarString);
+          // unsigned flag
+          buffer.writeUint8(0);
+        } else {
+          buffer.writeUint8(mysqlColumnTypeNull);
+          buffer.writeUint8(0);
+        }
       }
-
       // write param values
       for (final param in params) {
-        buffer.write(param.item2);
+        if (param != null) {
+          final String value = param.toString();
+          buffer.writeVariableEncInt(value.length);
+          buffer.write(value.codeUnits);
+        }
       }
     }
 

@@ -16,7 +16,14 @@ Future<void> main(List<String> arguments) async {
 
   print("Connected");
 
-  var stmt = await conn.prepare("SELECT * FROM book");
+  // insert data
+  var stmt = await conn.prepare(
+    "INSERT INTO book (author_id, title, price, created_at) VALUES (?, ?, ?, ?)",
+  );
+  await stmt.execute([null, 'Some book', 120, '2022-01-01']);
+
+  // select data
+  stmt = await conn.prepare("SELECT * FROM book");
   var result = await stmt.execute([]);
 
   for (final row in result.rows) {

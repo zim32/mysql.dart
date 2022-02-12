@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:tuple/tuple.dart';
 import 'package:mysql_client/mysql_protocol_extension.dart';
@@ -62,9 +63,113 @@ Tuple2<String, int> parseBinaryColumnData(
     case mysqlColumnTypeDate:
     case mysqlColumnTypeDateTime:
     case mysqlColumnTypeTimestamp:
-      throw UnimplementedError("column type not implemented");
+      final initialOffset = startOffset;
+
+      // read number of bytes (0, 4, 7, 11)
+      final numOfBytes = data.getUint8(startOffset);
+      startOffset += 1;
+
+      if (numOfBytes == 0) {
+        return Tuple2("0000-00-00 00:00:00", 1);
+      }
+
+      var year = 0;
+      var month = 0;
+      var day = 0;
+      var hour = 0;
+      var minute = 0;
+      var second = 0;
+      var microSecond = 0;
+
+      if (numOfBytes >= 4) {
+        year = data.getUint16(startOffset, Endian.little);
+        startOffset += 2;
+
+        month = data.getUint8(startOffset);
+        startOffset += 1;
+
+        day = data.getUint8(startOffset);
+        startOffset += 1;
+      }
+
+      if (numOfBytes >= 7) {
+        hour = data.getUint8(startOffset);
+        startOffset += 1;
+
+        minute = data.getUint8(startOffset);
+        startOffset += 1;
+
+        second = data.getUint8(startOffset);
+        startOffset += 1;
+      }
+
+      if (numOfBytes >= 11) {
+        microSecond = data.getUint32(startOffset, Endian.little);
+        startOffset += 4;
+      }
+
+      final result = StringBuffer();
+      result.write(year.toString() + '-');
+      result.write(month.toString().padLeft(2, '0') + '-');
+      result.write(day.toString().padLeft(2, '0') + ' ');
+      result.write(hour.toString().padLeft(2, '0') + ':');
+      result.write(minute.toString().padLeft(2, '0') + ':');
+      result.write(second.toString().padLeft(2, '0') + '.');
+      result.write(microSecond.toString());
+
+      return Tuple2(result.toString(), startOffset - initialOffset);
     case mysqlColumnTypeTime:
-      throw UnimplementedError("column type not implemented");
+      final initialOffset = startOffset;
+
+      // read number of bytes (0, 8, 12)
+      final numOfBytes = data.getUint8(startOffset);
+      startOffset += 1;
+
+      if (numOfBytes == 0) {
+        return Tuple2("00:00:00", 1);
+      }
+
+      var isNegative = false;
+      var days = 0;
+      var hours = 0;
+      var minutes = 0;
+      var seconds = 0;
+      var microSecond = 0;
+
+      if (numOfBytes >= 8) {
+        isNegative = data.getUint8(startOffset) > 0;
+        startOffset += 1;
+
+        days = data.getUint32(startOffset, Endian.little);
+        startOffset += 4;
+
+        hours = data.getUint8(startOffset);
+        startOffset += 1;
+
+        minutes = data.getUint8(startOffset);
+        startOffset += 1;
+
+        seconds = data.getUint8(startOffset);
+        startOffset += 1;
+      }
+
+      if (numOfBytes >= 12) {
+        microSecond = data.getUint32(startOffset, Endian.little);
+        startOffset += 4;
+      }
+
+      hours += days * 24;
+
+      final result = StringBuffer();
+      if (isNegative) {
+        result.write("-");
+      }
+      result.write(hours.toString().padLeft(2, '0') + ':');
+      result.write(minutes.toString().padLeft(2, '0') + ':');
+      result.write(seconds.toString().padLeft(2, '0') + '.');
+      result.write(microSecond.toString());
+
+      return Tuple2(result.toString(), startOffset - initialOffset);
     case mysqlColumnTypeString:
     case mysqlColumnTypeVarString:
     case mysqlColumnTypeVarChar:
