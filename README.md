@@ -9,7 +9,7 @@ See [example](example/) directory for examples and usage
 * [x] Connection pool
 * [x] Query placeholders
 * [x] Transactions
-* [ ] Prepared statements
+* [x] Prepared statements
 * [ ] SSL connection
 * [ ] Send data in binary form when using prepared stmts (do not convert all into strings)
 * [ ] Multiple resul sets
