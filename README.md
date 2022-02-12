@@ -11,6 +11,7 @@ See [example](example/) directory for examples and usage
 * [x] Transactions
 * [x] Prepared statements (real, not emulated)
 * [ ] SSL connection
+* [ ] Auth using caching_sha2_password (default since MySQL 8)
 * [ ] Send data in binary form when using prepared stmts (do not convert all into strings)
 * [ ] Multiple resul sets
 
