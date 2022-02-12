@@ -44,7 +44,7 @@ class MySQLConnection {
     required String password,
     String? databaseName,
   }) async {
-    final socket = await Socket.connect("0.0.0.0", 3306);
+    final socket = await Socket.connect(host, port);
 
     final client = MySQLConnection._(
       socket: socket,
