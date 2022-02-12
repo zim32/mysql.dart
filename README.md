@@ -67,6 +67,20 @@ await stmt.execute([null, 'Some book 2', 10, '2022-01-01']);
 await stmt.deallocate();
 ```
 
+### Transactions
+
+To execute queries in transaction, you can use *transactional()* method on *connection* or *pool* object
+Example:
+
+```dart
+await pool.transactional((conn) async {
+  await conn.execute("UPDATE book SET price = :price", {"price": 300});
+  await conn.execute("UPDATE book_author SET name = :name", {"name": "John Doe"});
+});
+```
+
+In case of exception, transaction will roll back automatically.
+
 ### Tests
 
 To run tests execute
