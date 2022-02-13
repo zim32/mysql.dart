@@ -10,7 +10,7 @@ See [example](example/) directory for examples and usage
 * [x] Query placeholders
 * [x] Transactions
 * [x] Prepared statements (real, not emulated)
-* [ ] SSL connection
+* [x] SSL connection
 * [ ] Auth using caching_sha2_password (default since MySQL 8)
 * [ ] Send data in binary form when using prepared stmts (do not convert all into strings)
 * [ ] Multiple resul sets
@@ -21,14 +21,29 @@ See [example](example/) directory for examples and usage
 
 ```dart
 final pool = MySQLConnectionPool(
-    host: '127.0.0.1',
-    port: 3306,
-    userName: 'your_user',
-    password: 'your_password',
-    maxConnections: 10,
-    databaseName: 'your_database_name', // optional,
-  );
+  host: '127.0.0.1',
+  port: 3306,
+  userName: 'your_user',
+  password: 'your_password',
+  maxConnections: 10,
+  databaseName: 'your_database_name', // optional,
+);
 ```
+
+#### Or single connection
+
+```dart
+final conn = await MySQLConnection.createConnection(
+  host: "127.0.0.1",
+  port: 3306,
+  userName: "your_user",
+  password: "your_password",
+  databaseName: "your_database_name", // optional
+);
+```
+
+**Warning**
+By default connection is secure. If you don't want to use SSL (TLS) connection, pass *secure: false*
 
 #### Query database
 
