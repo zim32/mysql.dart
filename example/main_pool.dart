@@ -3,12 +3,12 @@ import 'package:mysql_client/mysql_client.dart';
 Future<void> main(List<String> arguments) async {
   // create connections pool
   final pool = MySQLConnectionPool(
-    host: '127.0.0.1',
+    host: "127.0.0.1",
     port: 3306,
-    userName: 'your_user',
-    password: 'your_password',
+    userName: "your_user",
+    password: "your_password",
+    databaseName: "your_database_name", // optional
     maxConnections: 10,
-    databaseName: 'your_database_name', // optional,
   );
 
   // update table (inside transaction) and get total number of affected rows

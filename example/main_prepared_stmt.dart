@@ -8,8 +8,8 @@ Future<void> main(List<String> arguments) async {
     host: "127.0.0.1",
     port: 3306,
     userName: "your_user",
-    password: "yout_password",
-    databaseName: "your_database_name",
+    password: "your_password",
+    databaseName: "your_database_name", // optional
   );
 
   await conn.connect();

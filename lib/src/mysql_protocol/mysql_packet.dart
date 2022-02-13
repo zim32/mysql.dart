@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart' show ByteDataWriter;
@@ -70,6 +69,41 @@ class MySQLPacket {
     );
   }
 
+  factory MySQLPacket.decodeAuthSwitchRequestPacket(Uint8List buffer) {
+    final byteData = ByteData.sublistView(buffer);
+    int offset = 0;
+
+    // payloadLength
+    var db = ByteData(4)
+      ..setUint8(0, buffer[0])
+      ..setUint8(1, buffer[1])
+      ..setUint8(2, buffer[2])
+      ..setUint8(3, 0);
+
+    final payloadLength = db.getUint32(0, Endian.little);
+    offset += 3;
+
+    // sequence number
+    final sequenceNumber = byteData.getUint8(offset);
+    offset += 1;
+
+    final header = byteData.getUint8(offset);
+
+    if (header != 0xfe) {
+      throw Exception(
+          "Can not decode AuthSwitchResponse packet: header is not 0xfe");
+    }
+
+    final payload = MySQLPacketAuthSwitchRequest.decode(
+        Uint8List.sublistView(buffer, offset));
+
+    return MySQLPacket(
+      sequenceID: sequenceNumber,
+      payloadLength: payloadLength,
+      payload: payload,
+    );
+  }
+
   factory MySQLPacket.decodeGenericPacket(Uint8List buffer) {
     final byteData = ByteData.sublistView(buffer);
     int offset = 0;
@@ -92,13 +126,16 @@ class MySQLPacket {
 
     MySQLPacketPayload payload;
 
-    if (header == 0x00 || header == 0xfe) {
+    if (header == 0x00 && payloadLength >= 7) {
       // OK packet
+      payload = MySQLPacketOK.decode(Uint8List.sublistView(buffer, offset));
+    } else if (header == 0xfe && payloadLength < 9) {
+      // EOF packet
       payload = MySQLPacketOK.decode(Uint8List.sublistView(buffer, offset));
     } else if (header == 0xff) {
       payload = MySQLPacketError.decode(Uint8List.sublistView(buffer, offset));
     } else {
-      throw Exception("Unsupported generic packet header value: $header");
+      throw Exception("Unsupported generic packet: $buffer");
     }
 
     return MySQLPacket(
@@ -354,6 +391,43 @@ class MySQLPacketError extends MySQLPacketPayload {
   }
 }
 
+class MySQLPacketAuthSwitchRequest extends MySQLPacketPayload {
+  int header;
+  String authPluginName;
+  Uint8List authPluginData;
+
+  MySQLPacketAuthSwitchRequest({
+    required this.header,
+    required this.authPluginData,
+    required this.authPluginName,
+  });
+
+  factory MySQLPacketAuthSwitchRequest.decode(Uint8List buffer) {
+    final byteData = ByteData.sublistView(buffer);
+
+    int offset = 0;
+
+    final header = byteData.getUint8(offset);
+    offset += 1;
+
+    final authPluginName = buffer.getNullTerminatedString(offset);
+    offset += authPluginName.length + 1;
+
+    final authPluginData = Uint8List.sublistView(buffer, offset);
+
+    return MySQLPacketAuthSwitchRequest(
+      header: header,
+      authPluginData: authPluginData,
+      authPluginName: authPluginName,
+    );
+  }
+
+  @override
+  Uint8List encode() {
+    throw UnimplementedError();
+  }
+}
+
 class MySQLPacketStmtPrepareOK extends MySQLPacketPayload {
   int header;
   int stmtID;
@@ -598,7 +672,7 @@ class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
           mysqlCapFlagClientSecureConnection |
           mysqlCapFlagClientPluginAuth |
           mysqlCapFlagClientPluginAuthLenEncClientData,
-      maxPacketSize: 5 * 1024 * 1024,
+      maxPacketSize: 50 * 1024 * 1024,
       authPluginName: initialHandshakePayload.authPluginName!,
       characterSet: initialHandshakePayload.charset,
       authResponse: authData,
@@ -636,6 +710,83 @@ class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
       buffer.write(authPluginName.codeUnits);
       buffer.writeUint8(0);
     }
+
+    return buffer.toBytes();
+  }
+}
+
+class MySQLPacketAuthSwitchResponse extends MySQLPacketPayload {
+  Uint8List authData;
+
+  MySQLPacketAuthSwitchResponse({
+    required this.authData,
+  });
+
+  factory MySQLPacketAuthSwitchResponse.createWithNativePassword({
+    required String password,
+    required Uint8List challenge,
+  }) {
+    assert(challenge.length == 20);
+    final passwordBytes = password.codeUnits;
+
+    final authData =
+        xor(sha1(passwordBytes), sha1(challenge + sha1(sha1(passwordBytes))));
+
+    return MySQLPacketAuthSwitchResponse(
+      authData: authData,
+    );
+  }
+
+  @override
+  Uint8List encode() {
+    final buffer = ByteDataWriter(endian: Endian.little);
+    buffer.write(authData);
+
+    return buffer.toBytes();
+  }
+}
+
+class MySQLPacketSSLRequest extends MySQLPacketPayload {
+  int capabilityFlags;
+  int maxPacketSize;
+  int characterSet;
+  bool connectWithDB;
+
+  MySQLPacketSSLRequest._({
+    required this.capabilityFlags,
+    required this.maxPacketSize,
+    required this.characterSet,
+    required this.connectWithDB,
+  });
+
+  factory MySQLPacketSSLRequest.createDefault({
+    required MySQLPacketInitialHandshake initialHandshakePayload,
+    required bool connectWithDB,
+  }) {
+    return MySQLPacketSSLRequest._(
+      capabilityFlags: mysqlCapFlagClientProtocol41 |
+          mysqlCapFlagClientSecureConnection |
+          mysqlCapFlagClientPluginAuth |
+          mysqlCapFlagClientPluginAuthLenEncClientData |
+          mysqlCapFlagClientSsl,
+      maxPacketSize: 50 * 1024 * 1024,
+      characterSet: initialHandshakePayload.charset,
+      connectWithDB: connectWithDB,
+    );
+  }
+
+  @override
+  Uint8List encode() {
+    if (connectWithDB) {
+      capabilityFlags = capabilityFlags | mysqlCapFlagClientConnectWithDB;
+    }
+
+    final buffer = ByteDataWriter(endian: Endian.little);
+
+    buffer.writeUint32(capabilityFlags);
+    buffer.writeUint32(maxPacketSize);
+    buffer.writeUint8(characterSet);
+    buffer.write(List.filled(23, 0));
 
     return buffer.toBytes();
   }

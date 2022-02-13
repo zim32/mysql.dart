@@ -1,10 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:buffer/buffer.dart';
 import 'package:mysql_client/mysql_protocol.dart';
-import 'package:mysql_client/mysql_protocol_extension.dart';
-import 'package:tuple/tuple.dart';
 
 enum _MySQLConnectionState {
   fresh,
@@ -16,7 +13,7 @@ enum _MySQLConnectionState {
 }
 
 class MySQLConnection {
-  final Socket _socket;
+  Socket _socket;
   bool _connected = false;
   StreamSubscription<Uint8List>? _socketSubscription;
   _MySQLConnectionState _state = _MySQLConnectionState.fresh;
@@ -26,22 +23,26 @@ class MySQLConnection {
   void Function(Uint8List data)? _responseCallback;
   final List<void Function()> _onCloseCallbacks = [];
   bool _inTransaction = false;
+  final bool _secure;
 
   MySQLConnection._({
     required Socket socket,
     required String username,
     required String password,
+    bool secure = true,
     String? databaseName,
   })  : _socket = socket,
         _username = username,
         _password = password,
-        _databaseName = databaseName;
+        _databaseName = databaseName,
+        _secure = secure;
 
   static Future<MySQLConnection> createConnection({
     required String host,
     required int port,
     required String userName,
     required String password,
+    bool secure = true,
     String? databaseName,
   }) async {
     final socket = await Socket.connect(host, port);
@@ -51,6 +52,7 @@ class MySQLConnection {
       username: userName,
       password: password,
       databaseName: databaseName,
+      secure: secure,
     );
 
     return client;
@@ -100,13 +102,44 @@ class MySQLConnection {
     _onCloseCallbacks.clear();
   }
 
-  void _processSocketData(Uint8List data) {
+  Future<void> _processSocketData(Uint8List data) async {
     if (_state == _MySQLConnectionState.waitInitialHandshake) {
-      _processInitialHandshake(data);
+      await _processInitialHandshake(data);
       return;
     }
 
     if (_state == _MySQLConnectionState.initialHandshakeResponseSend) {
+      // check for auth switch request
+      try {
+        final authSwitchPacket =
+            MySQLPacket.decodeAuthSwitchRequestPacket(data);
+
+        final payload =
+            authSwitchPacket.payload as MySQLPacketAuthSwitchRequest;
+
+        switch (payload.authPluginName) {
+          case 'mysql_native_password':
+            final responsePayload =
+                MySQLPacketAuthSwitchResponse.createWithNativePassword(
+              password: _password,
+              challenge: payload.authPluginData.sublist(0, 20),
+            );
+            final responsePacket = MySQLPacket(
+              sequenceID: authSwitchPacket.sequenceID + 1,
+              payload: responsePayload,
+              payloadLength: 0,
+            );
+
+            _socket.add(responsePacket.encode());
+            return;
+          default:
+            throw Exception(
+                "Unsupported auth plugin name: ${payload.authPluginName}");
+        }
+      } catch (e) {
+        // not auth switch request packet, continue packet processing
+      }
+
       final packet = MySQLPacket.decodeGenericPacket(data);
 
       if (packet.isErrorPacket()) {
@@ -124,16 +157,57 @@ class MySQLConnection {
 
     if (_state == _MySQLConnectionState.waitingCommandResponse) {
       _processCommandResponse(data);
+      return;
     }
+
+    throw Exception("Skipping socket data, because of connection state");
   }
 
-  void _processInitialHandshake(Uint8List data) {
+  Future<void> _processInitialHandshake(Uint8List data) async {
     final packet = MySQLPacket.decodeInitialHandshake(data);
 
     final payload = packet.payload;
 
     if (payload is! MySQLPacketInitialHandshake) {
       throw Exception("Expected MySQLPacketInitialHandshake packet");
+    }
+
+    if (_secure) {
+      // it secure = true, initiate ssl connection
+      Future<void> initiateSSL() async {
+        final responsePayload = MySQLPacketSSLRequest.createDefault(
+          initialHandshakePayload: payload,
+          connectWithDB: _databaseName != null,
+        );
+
+        final responsePacket = MySQLPacket(
+          sequenceID: 1,
+          payload: responsePayload,
+          payloadLength: 0,
+        );
+
+        _socket.add(responsePacket.encode());
+
+        _socketSubscription?.pause();
+
+        final secureSocket = await SecureSocket.secure(
+          _socket,
+          onBadCertificate: (certificate) => true,
+        );
+
+        // switch socket
+        _socket = secureSocket;
+
+        _socketSubscription = secureSocket.listen((data) {
+          _processSocketData(data);
+        });
+
+        _socketSubscription!.onDone(() {
+          _handleSocketClose();
+        });
+      }
+
+      await initiateSSL();
     }
 
     final authPluginName = payload.authPluginName;
@@ -151,7 +225,7 @@ class MySQLConnection {
 
         final responsePacket = MySQLPacket(
           payload: responsePayload,
-          sequenceID: 1,
+          sequenceID: _secure ? 2 : 1,
           payloadLength: 0,
         );
 

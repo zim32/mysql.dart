@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:mysql_client/mysql_client.dart';
 
 class MySQLConnectionPool {
@@ -9,6 +8,7 @@ class MySQLConnectionPool {
   final String _password;
   final int maxConnections;
   final String? databaseName;
+  final bool secure;
 
   final List<MySQLConnection> _activeConnections = [];
   final List<MySQLConnection> _idleConnections = [];
@@ -20,6 +20,7 @@ class MySQLConnectionPool {
     required password,
     required this.maxConnections,
     this.databaseName,
+    this.secure = true,
   }) : _password = password;
 
   int get activeConnectionsQty => _idleConnections.length;
@@ -81,7 +82,9 @@ class MySQLConnectionPool {
         userName: userName,
         password: _password,
         databaseName: databaseName,
+        secure: secure,
       );
+
       await conn.connect();
       _activeConnections.add(conn);
 
