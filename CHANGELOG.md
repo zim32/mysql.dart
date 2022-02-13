@@ -1,3 +1,8 @@
+## 0.0.4
+
+- Implement SSL connection
+- Fix bug with hardcoded host and port
+
 ## 0.0.3
 
 - Implement prepared statements
