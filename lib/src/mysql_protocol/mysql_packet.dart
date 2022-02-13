@@ -42,6 +42,19 @@ class MySQLPacket {
     required this.payloadLength,
   });
 
+  static int getPacketLength(Uint8List buffer) {
+    // payloadLength
+    var db = ByteData(4)
+      ..setUint8(0, buffer[0])
+      ..setUint8(1, buffer[1])
+      ..setUint8(2, buffer[2])
+      ..setUint8(3, 0);
+
+    final payloadLength = db.getUint32(0, Endian.little);
+
+    return payloadLength + 4;
+  }
+
   factory MySQLPacket.decodeInitialHandshake(Uint8List buffer) {
     final byteData = ByteData.sublistView(buffer);
     int offset = 0;

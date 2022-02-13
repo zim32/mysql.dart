@@ -75,8 +75,9 @@ class MySQLConnection {
     _state = _MySQLConnectionState.waitInitialHandshake;
 
     _socketSubscription = _socket.listen((data) {
-      print(data);
-      _processSocketData(data);
+      for (final chunk in _splitPackets(data)) {
+        _processSocketData(chunk);
+      }
     });
 
     _socketSubscription!.onDone(() {
@@ -147,8 +148,7 @@ class MySQLConnection {
       try {
         packet = MySQLPacket.decodeGenericPacket(data);
       } catch (e) {
-        print("HERE");
-        print(e);
+        print("Skipping invalid packet: $data");
         return;
       }
 
@@ -171,6 +171,22 @@ class MySQLConnection {
     }
 
     throw Exception("Skipping socket data, because of connection state");
+  }
+
+  Iterable<Uint8List> _splitPackets(Uint8List data) sync* {
+    Uint8List view = data;
+
+    while (true) {
+      final packetLength = MySQLPacket.getPacketLength(view);
+      final chunk = Uint8List.sublistView(view, 0, packetLength);
+      yield chunk;
+
+      view = Uint8List.sublistView(view, packetLength);
+
+      if (view.isEmpty) {
+        break;
+      }
+    }
   }
 
   Future<void> _processInitialHandshake(Uint8List data) async {
@@ -209,7 +225,9 @@ class MySQLConnection {
         _socket = secureSocket;
 
         _socketSubscription = secureSocket.listen((data) {
-          _processSocketData(data);
+          for (final chunk in _splitPackets(data)) {
+            _processSocketData(chunk);
+          }
         });
 
         _socketSubscription!.onDone(() {
