@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart' show ByteDataWriter;
@@ -550,6 +552,7 @@ class MySQLPacketInitialHandshake extends MySQLPacketPayload {
     if (capabilityFlags & mysqlCapFlagClientPluginAuth != 0) {
       authPluginDataLength = byteData.getUint8(offset);
     }
+
     offset += 1;
 
     // reserved
@@ -593,6 +596,10 @@ class MySQLPacketInitialHandshake extends MySQLPacketPayload {
 
 List<int> sha1(List<int> data) {
   return crypto.sha1.convert(data).bytes;
+}
+
+List<int> sha256(List<int> data) {
+  return crypto.sha256.convert(data).bytes;
 }
 
 Uint8List xor(List<int> aList, List<int> bList) {
@@ -680,6 +687,36 @@ class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
     );
   }
 
+  factory MySQLPacketHandshakeResponse41.createWithCachingSha2Password({
+    required String username,
+    required String password,
+    required MySQLPacketInitialHandshake initialHandshakePayload,
+  }) {
+    final challenge = initialHandshakePayload.authPluginDataPart1 +
+        initialHandshakePayload.authPluginDataPart2!.sublist(0, 12);
+
+    assert(challenge.length == 20);
+
+    final passwordBytes = password.codeUnits;
+
+    final authData = xor(
+      sha256(passwordBytes),
+      sha256(sha256(sha256(passwordBytes)) + challenge),
+    );
+
+    return MySQLPacketHandshakeResponse41(
+      capabilityFlags: mysqlCapFlagClientProtocol41 |
+          mysqlCapFlagClientSecureConnection |
+          mysqlCapFlagClientPluginAuth |
+          mysqlCapFlagClientPluginAuthLenEncClientData,
+      maxPacketSize: 50 * 1024 * 1024,
+      authPluginName: initialHandshakePayload.authPluginName!,
+      characterSet: initialHandshakePayload.charset,
+      authResponse: authData,
+      username: username,
+    );
+  }
+
   @override
   Uint8List encode() {
     final buffer = ByteDataWriter(endian: Endian.little);
@@ -696,7 +733,7 @@ class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
     buffer.writeUint8(0);
 
     if (capabilityFlags & mysqlCapFlagClientSecureConnection != 0) {
-      buffer.writeUint8(20);
+      buffer.writeVariableEncInt(authResponse.lengthInBytes);
       buffer.write(authResponse);
     }
 

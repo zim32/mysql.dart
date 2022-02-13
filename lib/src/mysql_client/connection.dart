@@ -46,6 +46,7 @@ class MySQLConnection {
     String? databaseName,
   }) async {
     final socket = await Socket.connect(host, port);
+    socket.setOption(SocketOption.tcpNoDelay, true);
 
     final client = MySQLConnection._(
       socket: socket,
@@ -74,6 +75,7 @@ class MySQLConnection {
     _state = _MySQLConnectionState.waitInitialHandshake;
 
     _socketSubscription = _socket.listen((data) {
+      print(data);
       _processSocketData(data);
     });
 
@@ -140,7 +142,15 @@ class MySQLConnection {
         // not auth switch request packet, continue packet processing
       }
 
-      final packet = MySQLPacket.decodeGenericPacket(data);
+      MySQLPacket packet;
+
+      try {
+        packet = MySQLPacket.decodeGenericPacket(data);
+      } catch (e) {
+        print("HERE");
+        print(e);
+        return;
+      }
 
       if (packet.isErrorPacket()) {
         final errorPayload = packet.payload as MySQLPacketError;
@@ -216,6 +226,25 @@ class MySQLConnection {
       case 'mysql_native_password':
         final responsePayload =
             MySQLPacketHandshakeResponse41.createWithNativePassword(
+          username: _username,
+          password: _password,
+          initialHandshakePayload: payload,
+        );
+
+        responsePayload.database = _databaseName;
+
+        final responsePacket = MySQLPacket(
+          payload: responsePayload,
+          sequenceID: _secure ? 2 : 1,
+          payloadLength: 0,
+        );
+
+        _state = _MySQLConnectionState.initialHandshakeResponseSend;
+        _socket.add(responsePacket.encode());
+        break;
+      case 'caching_sha2_password':
+        final responsePayload =
+            MySQLPacketHandshakeResponse41.createWithCachingSha2Password(
           username: _username,
           password: _password,
           initialHandshakePayload: payload,
