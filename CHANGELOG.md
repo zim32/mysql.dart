@@ -1,3 +1,10 @@
+## 0.0.5
+
+- Implement caching_sha2_password auth plugin
+- Refactor data packets handling
+- Split data packets
+- Fix some bugs
+
 ## 0.0.4
 
 - Implement SSL connection

@@ -2,6 +2,8 @@
 
 See [example](example/) directory for examples and usage
 
+Tested with MySQL Percona Server **5.7** and **8** versions
+
 ### Roadmap
 
 * [x] Auth with mysql_native_password
