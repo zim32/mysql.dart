@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:buffer/buffer.dart';
 import 'package:mysql_client/mysql_protocol.dart';
 
 enum _MySQLConnectionState {
@@ -148,7 +149,7 @@ class MySQLConnection {
       try {
         packet = MySQLPacket.decodeGenericPacket(data);
       } catch (e) {
-        print("Skipping invalid packet: $data");
+        // print("Skipping invalid packet: $data");
         return;
       }
 
@@ -170,7 +171,9 @@ class MySQLConnection {
       return;
     }
 
-    throw Exception("Skipping socket data, because of connection state");
+    throw Exception(
+      "Skipping socket data, because of connection bad state\nState: ${_state.name}\nData: $data",
+    );
   }
 
   Iterable<Uint8List> _splitPackets(Uint8List data) sync* {
@@ -318,20 +321,90 @@ class MySQLConnection {
 
     final completer = Completer<IResultSet>();
 
+    /**
+     * 0 - initial
+     * 1 - columnCount decoded
+     * 2 - columnDefs parsed
+     * 3 - eofParsed
+     * 4 - rowsParsed
+     */
+    int state = 0;
+    int colsCount = 0;
+    List<MySQLColumnDefinitionPacket> colDefs = [];
+    List<MySQLResultSetRowPacket> resultSetRows = [];
+
     _responseCallback = (data) {
-      final packet = MySQLPacket.decodeCommQueryResponsePacket(data);
-      final payload = packet.payload;
-      _state = _MySQLConnectionState.connectionEstablished;
+      MySQLPacket? packet;
+
+      switch (state) {
+        case 0:
+          // if packet is OK packet, there is no data
+          if (MySQLPacket.detectPacketType(data) == MySQLGenericPacketType.ok) {
+            final okPacket = MySQLPacket.decodeGenericPacket(data);
+            _state = _MySQLConnectionState.connectionEstablished;
+
+            completer.complete(
+              EmptyResultSet(okPacket: okPacket.payload as MySQLPacketOK),
+            );
+
+            return;
+          }
+
+          packet = MySQLPacket.decodeColumnCountPacket(data);
+          break;
+        case 1:
+          packet = MySQLPacket.decodeColumnDefPacket(data);
+          break;
+        case 2:
+          packet = MySQLPacket.decodeGenericPacket(data);
+          if (packet.isEOFPacket()) {
+            state = 3;
+          } else if (packet.isErrorPacket()) {
+            final errMsg = (packet.payload as MySQLPacketError).errorMessage;
+            throw Exception("MySQL exception: $errMsg");
+          } else {
+            throw Exception("Unexcpected packet type");
+          }
+          break;
+        case 3:
+          // check eof
+          if (MySQLPacket.detectPacketType(data) ==
+              MySQLGenericPacketType.eof) {
+            state = 4;
+
+            final resultSetPacket = MySQLPacketResultSet(
+              columnCount: BigInt.from(colsCount),
+              columns: colDefs,
+              rows: resultSetRows,
+            );
+
+            _state = _MySQLConnectionState.connectionEstablished;
+            completer.complete(ResultSet._(resultSetPacket: resultSetPacket));
+            return;
+          }
+
+          packet = MySQLPacket.decodeResultSetRowPacket(data, colsCount);
+          break;
+      }
+
+      final payload = packet!.payload;
 
       if (payload is MySQLPacketError) {
         completer.completeError("MySQL error: " + payload.errorMessage);
         return;
       } else if (payload is MySQLPacketOK) {
-        completer.complete(EmptyResultSet(okPacket: payload));
+        // do nothing
+      } else if (payload is MySQLPacketColumnCount) {
+        state = 1;
+        colsCount = payload.columnCount.toInt();
         return;
-      } else if (payload is MySQLPacketResultSet) {
-        completer.complete(ResultSet._(resultSetPacket: payload));
-        return;
+      } else if (payload is MySQLColumnDefinitionPacket) {
+        colDefs.add(payload);
+        if (colDefs.length == colsCount) {
+          state = 2;
+        }
+      } else if (payload is MySQLResultSetRowPacket) {
+        resultSetRows.add(payload);
       } else {
         completer.completeError(
           "Unexpected payload received in response to COMM_QUERY request",
@@ -408,25 +481,70 @@ class MySQLConnection {
 
     final completer = Completer<PreparedStmt>();
 
-    _responseCallback = (data) {
-      final packet = MySQLPacket.decodeCommPrepareStmtResponsePacket(data);
-      final payload = packet.payload;
-      _state = _MySQLConnectionState.connectionEstablished;
+    /**
+     * 0 - initial
+     * 1 - first packet decoded
+     * 2 - eof decoded
+     */
+    int state = 0;
+    MySQLPacketStmtPrepareOK? preparedPacket;
 
-      if (payload is MySQLPacketError) {
-        completer.completeError("MySQL error: " + payload.errorMessage);
-        return;
-      } else if (payload is MySQLPacketStmtPrepareOK) {
-        completer.complete(PreparedStmt._(
-          preparedPacket: payload,
-          connection: this,
-        ));
-        return;
-      } else {
-        completer.completeError(
-          "Unexpected payload received in response to COM_STMT_PREPARE request",
-        );
+    _responseCallback = (data) {
+      MySQLPacket? packet;
+
+      switch (state) {
+        case 0:
+          packet = MySQLPacket.decodeCommPrepareStmtResponsePacket(data);
+          state = 1;
+          break;
+        default:
+          if (MySQLPacket.detectPacketType(data) ==
+              MySQLGenericPacketType.eof) {
+            state = 2;
+
+            completer.complete(PreparedStmt._(
+              preparedPacket: preparedPacket!,
+              connection: this,
+            ));
+
+            _state = _MySQLConnectionState.connectionEstablished;
+
+            return;
+          }
+
+          break;
       }
+
+      if (packet != null) {
+        final payload = packet.payload;
+
+        if (payload is MySQLPacketStmtPrepareOK) {
+          preparedPacket = payload;
+        } else if (payload is MySQLPacketError) {
+          throw Exception("MySQL error: ${payload.errorMessage}");
+        } else {
+          completer.completeError(
+            "Unexpected payload received in response to COMM_STMT_PREPARE request",
+          );
+        }
+      }
+
+      // _state = _MySQLConnectionState.connectionEstablished;
+
+      // if (payload is MySQLPacketError) {
+      //   completer.completeError("MySQL error: " + payload.errorMessage);
+      //   return;
+      // } else if (payload is MySQLPacketStmtPrepareOK) {
+      //   completer.complete(PreparedStmt._(
+      //     preparedPacket: payload,
+      //     connection: this,
+      //   ));
+      //   return;
+      // } else {
+      //   completer.completeError(
+      //     "Unexpected payload received in response to COM_STMT_PREPARE request",
+      //   );
+      // }
     };
 
     _socket.add(packet.encode());
@@ -463,24 +581,101 @@ class MySQLConnection {
 
     final completer = Completer<IResultSet>();
 
-    _responseCallback = (data) {
-      final packet = MySQLPacket.decodeCommPrepareStmtExecResponsePacket(data);
-      final payload = packet.payload;
-      _state = _MySQLConnectionState.connectionEstablished;
+    /**
+     * 0 - initial
+     * 1 - columnCount decoded
+     * 2 - columnDefs parsed
+     * 3 - eofParsed
+     * 4 - rowsParsed
+     */
+    int state = 0;
+    int colsCount = 0;
+    List<MySQLColumnDefinitionPacket> colDefs = [];
+    List<MySQLBinaryResultSetRowPacket> resultSetRows = [];
 
-      if (payload is MySQLPacketError) {
-        completer.completeError("MySQL error: " + payload.errorMessage);
-        return;
-      } else if (payload is MySQLPacketOK) {
-        completer.complete(EmptyResultSet(okPacket: payload));
-        return;
-      } else if (payload is MySQLPacketBinaryResultSet) {
-        completer.complete(PreparedStmtResultSet._(resultSetPacket: payload));
-        return;
-      } else {
-        completer.completeError(
-          "Unexpected payload received in response to COM_STMT_EXEC request",
-        );
+    _responseCallback = (data) {
+      MySQLPacket? packet;
+
+      switch (state) {
+        case 0:
+          // if packet is OK packet, there is no data
+          if (MySQLPacket.detectPacketType(data) == MySQLGenericPacketType.ok) {
+            final okPacket = MySQLPacket.decodeGenericPacket(data);
+            _state = _MySQLConnectionState.connectionEstablished;
+
+            completer.complete(
+              EmptyResultSet(okPacket: okPacket.payload as MySQLPacketOK),
+            );
+
+            return;
+          }
+
+          packet = MySQLPacket.decodeColumnCountPacket(data);
+          break;
+        case 1:
+          packet = MySQLPacket.decodeColumnDefPacket(data);
+          break;
+        case 2:
+          packet = MySQLPacket.decodeGenericPacket(data);
+          if (packet.isEOFPacket()) {
+            state = 3;
+          } else if (packet.isErrorPacket()) {
+            final errMsg = (packet.payload as MySQLPacketError).errorMessage;
+            throw Exception("MySQL exception: $errMsg");
+          } else {
+            throw Exception("Unexcpected packet type");
+          }
+          break;
+        case 3:
+          // check eof
+          if (MySQLPacket.detectPacketType(data) ==
+              MySQLGenericPacketType.eof) {
+            state = 4;
+
+            final resultSetPacket = MySQLPacketBinaryResultSet(
+              columnCount: BigInt.from(colsCount),
+              columns: colDefs,
+              rows: resultSetRows,
+            );
+
+            _state = _MySQLConnectionState.connectionEstablished;
+
+            completer.complete(
+              PreparedStmtResultSet._(resultSetPacket: resultSetPacket),
+            );
+
+            return;
+          }
+
+          packet = MySQLPacket.decodeBinaryResultSetRowPacket(data, colDefs);
+
+          break;
+      }
+
+      if (packet != null) {
+        final payload = packet.payload;
+
+        if (payload is MySQLPacketError) {
+          completer.completeError("MySQL error: " + payload.errorMessage);
+          return;
+        } else if (payload is MySQLPacketOK) {
+          // do nothing
+        } else if (payload is MySQLPacketColumnCount) {
+          state = 1;
+          colsCount = payload.columnCount.toInt();
+          return;
+        } else if (payload is MySQLColumnDefinitionPacket) {
+          colDefs.add(payload);
+          if (colDefs.length == colsCount) {
+            state = 2;
+          }
+        } else if (payload is MySQLBinaryResultSetRowPacket) {
+          resultSetRows.add(payload);
+        } else {
+          completer.completeError(
+            "Unexpected payload received in response to COMM_QUERY request",
+          );
+        }
       }
     };
 

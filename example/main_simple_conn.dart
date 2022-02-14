@@ -16,6 +16,14 @@ Future<void> main(List<String> arguments) async {
 
   print("Connected");
 
+  // update some rows
+  var res = await conn.execute(
+    "UPDATE book SET price = :price",
+    {"price": 200},
+  );
+
+  print(res.affectedRows);
+
   // make query
   var result = await conn.execute("SELECT * FROM book");
 

@@ -16,10 +16,11 @@ Future<void> main(List<String> arguments) async {
 
   print("Connected");
 
-  // insert data
+  // insert some data
   var stmt = await conn.prepare(
     "INSERT INTO book (author_id, title, price, created_at) VALUES (?, ?, ?, ?)",
   );
+
   await stmt.execute([null, 'Some book 1', 120, '2022-01-01']);
   await stmt.execute([null, 'Some book 2', 10, '2022-01-01']);
   await stmt.deallocate();
