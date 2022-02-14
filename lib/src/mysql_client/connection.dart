@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:buffer/buffer.dart';
 import 'package:mysql_client/mysql_protocol.dart';
 
 enum _MySQLConnectionState {
@@ -294,7 +293,7 @@ class MySQLConnection {
   }
 
   Future<IResultSet> execute(String query,
-      [Map<String, dynamic>? params]) async {
+      [Map<String, dynamic>? params, bool iterable = false]) async {
     if (!_connected) {
       throw Exception("Can not execute query: connecion closed");
     }
@@ -333,6 +332,10 @@ class MySQLConnection {
     List<MySQLColumnDefinitionPacket> colDefs = [];
     List<MySQLResultSetRowPacket> resultSetRows = [];
 
+    // support for iterable result set
+    IterableResultSet? iterableResultSet;
+    StreamSink<ResultSetRow>? sink;
+
     _responseCallback = (data) {
       MySQLPacket? packet;
 
@@ -367,48 +370,78 @@ class MySQLConnection {
           }
           break;
         case 3:
-          // check eof
-          if (MySQLPacket.detectPacketType(data) ==
-              MySQLGenericPacketType.eof) {
-            state = 4;
+          if (iterable) {
+            if (iterableResultSet == null) {
+              iterableResultSet = IterableResultSet._(
+                columns: colDefs,
+              );
 
-            final resultSetPacket = MySQLPacketResultSet(
-              columnCount: BigInt.from(colsCount),
-              columns: colDefs,
-              rows: resultSetRows,
-            );
+              sink = iterableResultSet!._sink;
+              completer.complete(iterableResultSet);
+            }
 
-            _state = _MySQLConnectionState.connectionEstablished;
-            completer.complete(ResultSet._(resultSetPacket: resultSetPacket));
-            return;
+            // check eof
+            if (MySQLPacket.detectPacketType(data) ==
+                MySQLGenericPacketType.eof) {
+              state = 4;
+
+              _state = _MySQLConnectionState.connectionEstablished;
+              sink!.close();
+              return;
+            }
+
+            packet = MySQLPacket.decodeResultSetRowPacket(data, colsCount);
+            final values = (packet.payload as MySQLResultSetRowPacket).values;
+            sink!.add(ResultSetRow._(colDefs: colDefs, values: values));
+            packet = null;
+            break;
+          } else {
+            // check eof
+            if (MySQLPacket.detectPacketType(data) ==
+                MySQLGenericPacketType.eof) {
+              state = 4;
+
+              final resultSetPacket = MySQLPacketResultSet(
+                columnCount: BigInt.from(colsCount),
+                columns: colDefs,
+                rows: resultSetRows,
+              );
+
+              _state = _MySQLConnectionState.connectionEstablished;
+              completer.complete(ResultSet._(resultSetPacket: resultSetPacket));
+              return;
+            }
+
+            packet = MySQLPacket.decodeResultSetRowPacket(data, colsCount);
+            break;
           }
-
-          packet = MySQLPacket.decodeResultSetRowPacket(data, colsCount);
-          break;
       }
 
-      final payload = packet!.payload;
+      if (packet != null) {
+        final payload = packet.payload;
 
-      if (payload is MySQLPacketError) {
-        completer.completeError("MySQL error: " + payload.errorMessage);
-        return;
-      } else if (payload is MySQLPacketOK) {
-        // do nothing
-      } else if (payload is MySQLPacketColumnCount) {
-        state = 1;
-        colsCount = payload.columnCount.toInt();
-        return;
-      } else if (payload is MySQLColumnDefinitionPacket) {
-        colDefs.add(payload);
-        if (colDefs.length == colsCount) {
-          state = 2;
+        if (payload is MySQLPacketError) {
+          completer.completeError("MySQL error: " + payload.errorMessage);
+          return;
+        } else if (payload is MySQLPacketOK) {
+          // do nothing
+        } else if (payload is MySQLPacketColumnCount) {
+          state = 1;
+          colsCount = payload.columnCount.toInt();
+          return;
+        } else if (payload is MySQLColumnDefinitionPacket) {
+          colDefs.add(payload);
+          if (colDefs.length == colsCount) {
+            state = 2;
+          }
+        } else if (payload is MySQLResultSetRowPacket) {
+          assert(iterable == false);
+          resultSetRows.add(payload);
+        } else {
+          completer.completeError(
+            "Unexpected payload received in response to COMM_QUERY request",
+          );
         }
-      } else if (payload is MySQLResultSetRowPacket) {
-        resultSetRows.add(payload);
-      } else {
-        completer.completeError(
-          "Unexpected payload received in response to COMM_QUERY request",
-        );
       }
     };
 
@@ -458,7 +491,7 @@ class MySQLConnection {
     return query;
   }
 
-  Future<PreparedStmt> prepare(String query) async {
+  Future<PreparedStmt> prepare(String query, [bool iterable = false]) async {
     if (!_connected) {
       throw Exception("Can not prepare stmt: connecion closed");
     }
@@ -505,6 +538,7 @@ class MySQLConnection {
             completer.complete(PreparedStmt._(
               preparedPacket: preparedPacket!,
               connection: this,
+              iterable: iterable,
             ));
 
             _state = _MySQLConnectionState.connectionEstablished;
@@ -528,23 +562,6 @@ class MySQLConnection {
           );
         }
       }
-
-      // _state = _MySQLConnectionState.connectionEstablished;
-
-      // if (payload is MySQLPacketError) {
-      //   completer.completeError("MySQL error: " + payload.errorMessage);
-      //   return;
-      // } else if (payload is MySQLPacketStmtPrepareOK) {
-      //   completer.complete(PreparedStmt._(
-      //     preparedPacket: payload,
-      //     connection: this,
-      //   ));
-      //   return;
-      // } else {
-      //   completer.completeError(
-      //     "Unexpected payload received in response to COM_STMT_PREPARE request",
-      //   );
-      // }
     };
 
     _socket.add(packet.encode());
@@ -555,6 +572,7 @@ class MySQLConnection {
   Future<IResultSet> _executePreparedStmt(
     PreparedStmt stmt,
     List<dynamic> params,
+    bool iterable,
   ) async {
     if (!_connected) {
       throw Exception("Can not execute prepared stmt: connecion closed");
@@ -593,6 +611,10 @@ class MySQLConnection {
     List<MySQLColumnDefinitionPacket> colDefs = [];
     List<MySQLBinaryResultSetRowPacket> resultSetRows = [];
 
+    // support for iterable result set
+    IterablePreparedStmtResultSet? iterableResultSet;
+    StreamSink<ResultSetRow>? sink;
+
     _responseCallback = (data) {
       MySQLPacket? packet;
 
@@ -627,29 +649,57 @@ class MySQLConnection {
           }
           break;
         case 3:
-          // check eof
-          if (MySQLPacket.detectPacketType(data) ==
-              MySQLGenericPacketType.eof) {
-            state = 4;
+          if (iterable) {
+            if (iterableResultSet == null) {
+              iterableResultSet = IterablePreparedStmtResultSet._(
+                columns: colDefs,
+              );
 
-            final resultSetPacket = MySQLPacketBinaryResultSet(
-              columnCount: BigInt.from(colsCount),
-              columns: colDefs,
-              rows: resultSetRows,
-            );
+              sink = iterableResultSet!._sink;
+              completer.complete(iterableResultSet);
+            }
 
-            _state = _MySQLConnectionState.connectionEstablished;
+            // check eof
+            if (MySQLPacket.detectPacketType(data) ==
+                MySQLGenericPacketType.eof) {
+              state = 4;
 
-            completer.complete(
-              PreparedStmtResultSet._(resultSetPacket: resultSetPacket),
-            );
+              _state = _MySQLConnectionState.connectionEstablished;
+              sink!.close();
+              return;
+            }
 
-            return;
+            packet = MySQLPacket.decodeBinaryResultSetRowPacket(data, colDefs);
+            final values =
+                (packet.payload as MySQLBinaryResultSetRowPacket).values;
+            sink!.add(ResultSetRow._(colDefs: colDefs, values: values));
+            packet = null;
+            break;
+          } else {
+            // check eof
+            if (MySQLPacket.detectPacketType(data) ==
+                MySQLGenericPacketType.eof) {
+              state = 4;
+
+              final resultSetPacket = MySQLPacketBinaryResultSet(
+                columnCount: BigInt.from(colsCount),
+                columns: colDefs,
+                rows: resultSetRows,
+              );
+
+              _state = _MySQLConnectionState.connectionEstablished;
+
+              completer.complete(
+                PreparedStmtResultSet._(resultSetPacket: resultSetPacket),
+              );
+
+              return;
+            }
+
+            packet = MySQLPacket.decodeBinaryResultSetRowPacket(data, colDefs);
+
+            break;
           }
-
-          packet = MySQLPacket.decodeBinaryResultSetRowPacket(data, colDefs);
-
-          break;
       }
 
       if (packet != null) {
@@ -763,9 +813,10 @@ abstract class IResultSet {
   BigInt get lastInsertID;
   Iterable<ResultSetRow> get rows;
   Iterable<ResultSetColumn> get cols;
+  Stream<ResultSetRow> get rowsStream => Stream.fromIterable(rows);
 }
 
-class ResultSet implements IResultSet {
+class ResultSet extends IResultSet {
   final MySQLPacketResultSet _resultSetPacket;
 
   ResultSet._({
@@ -805,7 +856,52 @@ class ResultSet implements IResultSet {
   }
 }
 
-class PreparedStmtResultSet implements IResultSet {
+class IterableResultSet implements IResultSet {
+  final List<MySQLColumnDefinitionPacket> _columns;
+  late StreamController<ResultSetRow> _controller;
+
+  IterableResultSet._({
+    required List<MySQLColumnDefinitionPacket> columns,
+  }) : _columns = columns {
+    _controller = StreamController();
+  }
+
+  StreamSink<ResultSetRow> get _sink => _controller.sink;
+
+  @override
+  Stream<ResultSetRow> get rowsStream => _controller.stream;
+
+  @override
+  int get numOfColumns => _columns.length;
+
+  @override
+  int get numOfRows => throw UnimplementedError(
+        "numOfRows is not implemented for IterableResultSet",
+      );
+
+  @override
+  BigInt get affectedRows => BigInt.zero;
+
+  @override
+  BigInt get lastInsertID => BigInt.zero;
+
+  @override
+  Iterable<ResultSetColumn> get cols {
+    return _columns.map(
+      (e) => ResultSetColumn(
+        name: e.name,
+        type: e.type,
+      ),
+    );
+  }
+
+  @override
+  Iterable<ResultSetRow> get rows => throw UnimplementedError(
+        "Use rowsStream to get rows from IterableResultSet",
+      );
+}
+
+class PreparedStmtResultSet extends IResultSet {
   final MySQLPacketBinaryResultSet _resultSetPacket;
 
   PreparedStmtResultSet._({
@@ -845,7 +941,52 @@ class PreparedStmtResultSet implements IResultSet {
   }
 }
 
-class EmptyResultSet implements IResultSet {
+class IterablePreparedStmtResultSet extends IResultSet {
+  final List<MySQLColumnDefinitionPacket> _columns;
+  late StreamController<ResultSetRow> _controller;
+
+  IterablePreparedStmtResultSet._({
+    required List<MySQLColumnDefinitionPacket> columns,
+  }) : _columns = columns {
+    _controller = StreamController();
+  }
+
+  StreamSink<ResultSetRow> get _sink => _controller.sink;
+
+  @override
+  int get numOfColumns => _columns.length;
+
+  @override
+  int get numOfRows => throw UnimplementedError(
+        "numOfRows is not implemented for IterableResultSet",
+      );
+
+  @override
+  BigInt get affectedRows => BigInt.zero;
+
+  @override
+  BigInt get lastInsertID => BigInt.zero;
+
+  @override
+  Iterable<ResultSetRow> get rows => throw UnimplementedError(
+        "Use rowsStream to get rows from IterablePreparedStmtResultSet",
+      );
+
+  @override
+  Stream<ResultSetRow> get rowsStream => _controller.stream;
+
+  @override
+  Iterable<ResultSetColumn> get cols {
+    return _columns.map(
+      (e) => ResultSetColumn(
+        name: e.name,
+        type: e.type,
+      ),
+    );
+  }
+}
+
+class EmptyResultSet extends IResultSet {
   final MySQLPacketOK _okPacket;
 
   EmptyResultSet({required MySQLPacketOK okPacket}) : _okPacket = okPacket;
@@ -933,14 +1074,17 @@ class ResultSetColumn {
 }
 
 class PreparedStmt {
-  MySQLPacketStmtPrepareOK _preparedPacket;
-  MySQLConnection _connection;
+  final MySQLPacketStmtPrepareOK _preparedPacket;
+  final MySQLConnection _connection;
+  final bool _iterable;
 
   PreparedStmt._({
     required MySQLPacketStmtPrepareOK preparedPacket,
     required MySQLConnection connection,
+    required bool iterable,
   })  : _preparedPacket = preparedPacket,
-        _connection = connection;
+        _connection = connection,
+        _iterable = iterable;
 
   int get numOfParams => _preparedPacket.numOfParams;
 
@@ -951,7 +1095,7 @@ class PreparedStmt {
       );
     }
 
-    return _connection._executePreparedStmt(this, params);
+    return _connection._executePreparedStmt(this, params, _iterable);
   }
 
   Future<void> deallocate() {

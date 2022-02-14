@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:tuple/tuple.dart';
 import 'package:mysql_client/mysql_protocol_extension.dart';
