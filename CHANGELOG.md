@@ -1,3 +1,7 @@
+## 0.0.6
+
+- Implement iterable result sets
+
 ## 0.0.5
 
 - Implement caching_sha2_password auth plugin

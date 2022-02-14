@@ -14,8 +14,8 @@ Tested with MySQL Percona Server **5.7** and **8** versions
 * [x] Prepared statements (real, not emulated)
 * [x] SSL connection
 * [x] Auth using caching_sha2_password (default since MySQL 8)
+* [x] Iterating large result sets
 * [ ] Send data in binary form when using prepared stmts (do not convert all into strings)
-* [ ] Iterating large result sets
 * [ ] Multiple resul sets
 
 ### Usage
@@ -99,6 +99,26 @@ await pool.transactional((conn) async {
 ```
 
 In case of exception, transaction will roll back automatically.
+
+### Iterating large result sets
+
+In case you need to process large result sets, you can use iterable result set.
+To use iterable result set, pass iterable = true, to execute() or prepare() methods.
+In this case rows will be ready as soon as they are delivered from the network.
+This allows you to process large amount of rows, one by one, in Stream fashion.
+
+When using iterable result set, you need to use **result.rowsStream.listen** instead of **result.rows** to get access to rows.
+
+Example:
+
+```dart
+// make query (notice third parameter, iterable=true)
+var result = await conn.execute("SELECT * FROM book", {}, true);
+
+result.rowsStream.listen((row) {
+  print(row.assoc());
+});
+```
 
 ### Tests
 
