@@ -1,3 +1,8 @@
+## 0.0.9
+
+- Use utf8 charset by default
+- Encode all data using utf8.encode() and utf8.decode()
+
 ## 0.0.8
 
 - Improve error handling

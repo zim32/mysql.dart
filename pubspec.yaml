@@ -1,6 +1,6 @@
 name: mysql_client
 description: Native MySQL client written in Dart
-version: 0.0.8
+version: 0.0.9
 homepage: https://github.com/zim32/mysql.dart
 repository: https://github.com/zim32/mysql.dart
 platforms:
