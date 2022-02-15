@@ -5,9 +5,9 @@ import 'package:test/test.dart';
 void main() {
   final host = '127.0.0.1';
   final port = 3306;
-  final user = 'zim32';
-  final pass = 'sikkens';
-  final db = 'zim32_tutorial_tracker_54';
+  final user = 'testuser';
+  final pass = 'test';
+  final db = 'testdb';
 
   late MySQLConnection conn;
 
