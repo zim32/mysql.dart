@@ -24,6 +24,19 @@ Future<void> main(List<String> arguments) async {
 
   print(res.affectedRows);
 
+  // insert some rows
+  res = await conn.execute(
+    "INSERT INTO book (author_id, title, price, created_at) VALUES (:author, :title, :price, :created)",
+    {
+      "author": null,
+      "title": "New title",
+      "price": 200,
+      "created": "2022-02-02",
+    },
+  );
+
+  print(res.affectedRows);
+
   // make query
   var result = await conn.execute("SELECT * FROM book");
 

@@ -44,9 +44,9 @@ class MySQLConnectionPool {
 
   /// See [MySQLConnection.execute]
   Future<IResultSet> execute(String query,
-      [Map<String, dynamic>? params]) async {
+      [Map<String, dynamic>? params, bool iterable = false]) async {
     final conn = await _getFreeConnection();
-    final result = await conn.execute(query, params);
+    final result = await conn.execute(query, params, iterable);
     _releaseConnection(conn);
     return result;
   }
@@ -61,9 +61,9 @@ class MySQLConnectionPool {
   }
 
   /// See [MySQLConnection.prepare]
-  Future<PreparedStmt> prepare(String query) async {
+  Future<PreparedStmt> prepare(String query, [bool iterable = false]) async {
     final conn = await _getFreeConnection();
-    return conn.prepare(query);
+    return conn.prepare(query, iterable);
   }
 
   /// Get free connection from this pool (possibly new connection) and invoke callback function with this connection
