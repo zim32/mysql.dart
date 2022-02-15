@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:mysql_client/mysql_client.dart';
 
+/// Class to create and manage pool of database connections
 class MySQLConnectionPool {
   final String host;
   final int port;
@@ -13,6 +14,10 @@ class MySQLConnectionPool {
   final List<MySQLConnection> _activeConnections = [];
   final List<MySQLConnection> _idleConnections = [];
 
+  /// Creates new pool
+  ///
+  /// Almost all parameters are identical to [MySQLConnection.connect]
+  /// Pass [maxConnections] to tell pool maximum number of connections it can use
   MySQLConnectionPool({
     required this.host,
     required this.port,
@@ -23,13 +28,21 @@ class MySQLConnectionPool {
     this.secure = true,
   }) : _password = password;
 
+  /// Number of active connections in this pool
+  /// Active are connections which are currently interacting with the database
   int get activeConnectionsQty => _idleConnections.length;
+
+  /// Number of idle connections in this pool
+  /// Idle are connections which are currently not interacting with the database and ready to be used
   int get idleConnectionsQty => _idleConnections.length;
+
+  /// Active + Idle connections
   int get allConnectionsQty => activeConnectionsQty + idleConnectionsQty;
 
   List<MySQLConnection> get _allConnections =>
       _idleConnections + _activeConnections;
 
+  /// See [MySQLConnection.execute]
   Future<IResultSet> execute(String query,
       [Map<String, dynamic>? params]) async {
     final conn = await _getFreeConnection();
@@ -38,6 +51,7 @@ class MySQLConnectionPool {
     return result;
   }
 
+  /// Closes all connections in this pool and frees resources
   Future<void> close() async {
     for (final conn in _allConnections) {
       await conn.close();
@@ -46,11 +60,16 @@ class MySQLConnectionPool {
     _activeConnections.clear();
   }
 
+  /// See [MySQLConnection.prepare]
   Future<PreparedStmt> prepare(String query) async {
     final conn = await _getFreeConnection();
     return conn.prepare(query);
   }
 
+  /// Get free connection from this pool (possibly new connection) and invoke callback function with this connection
+  ///
+  /// After callback completes, connection is returned into pool as idle connection
+  /// This function returns callback result
   FutureOr<T> withConnection<T>(
       FutureOr<T> Function(MySQLConnection conn) callback) async {
     final conn = await _getFreeConnection();
@@ -59,6 +78,7 @@ class MySQLConnectionPool {
     return result;
   }
 
+  /// See [MySQLConnection.transactional]
   Future<T> transactional<T>(
       FutureOr<T> Function(MySQLConnection conn) callback) async {
     return withConnection((conn) {

@@ -12,6 +12,9 @@ enum _MySQLConnectionState {
   quitCommandSend,
 }
 
+/// Main class to interact with MySQL database
+///
+/// Use [MySQLConnection.createConnection] to create connection
 class MySQLConnection {
   Socket _socket;
   bool _connected = false;
@@ -37,6 +40,13 @@ class MySQLConnection {
         _databaseName = databaseName,
         _secure = secure;
 
+  /// Creates connection with provided options
+  ///
+  /// [host] host to connect to
+  /// [userName] database user name
+  /// [password] user password
+  ///
+  /// By default connection uses TLS, if you don't want to use TLS, set [secure] to false
   static Future<MySQLConnection> createConnection({
     required String host,
     required int port,
@@ -59,14 +69,19 @@ class MySQLConnection {
     return client;
   }
 
+  /// Returns true if this connection can be used to interact with database
   bool get connected {
     return _connected;
   }
 
+  /// Registers callack to be executed when this connection is closed
   void onClose(void Function() callback) {
     _onCloseCallbacks.add(callback);
   }
 
+  /// Initiate connection to database
+  ///
+  /// Default [timeoutMs] is 5000 milliseconds
   Future<void> connect({int timeoutMs = 5000}) async {
     if (_state != _MySQLConnectionState.fresh) {
       throw Exception("Can not connect: status is not fresh");
@@ -292,6 +307,11 @@ class MySQLConnection {
     }
   }
 
+  /// Executes given [query]
+  ///
+  /// [execute] can be used to make any query type (SELECT, INSERT, UPDATE)
+  /// You can pass named parameters using [params]
+  /// Pass [iterable] true if you want to receive rows one by one in Stream fashion
   Future<IResultSet> execute(String query,
       [Map<String, dynamic>? params, bool iterable = false]) async {
     if (!_connected) {
@@ -450,6 +470,9 @@ class MySQLConnection {
     return completer.future;
   }
 
+  /// Execute [callback] inside database transaction
+  ///
+  /// If exception is thrown inside [callback] function, transaction is rolled back
   Future<T> transactional<T>(
       FutureOr<T> Function(MySQLConnection conn) callback) async {
     // prevent double transaction
@@ -491,6 +514,13 @@ class MySQLConnection {
     return query;
   }
 
+  /// Prepares given [query]
+  ///
+  /// Returns [PreparedStmt] which can be used to execute prepared statement multiple times with different parameters
+  /// See [PreparedStmt.execute]
+  /// You shoud call [PreparedStmt.deallocate] when you don't need prepared statement anymore to prevent memory leaks
+  ///
+  /// Pass [iterable] true if you want to iterable result set. See [execute] for details
   Future<PreparedStmt> prepare(String query, [bool iterable = false]) async {
     if (!_connected) {
       throw Exception("Can not prepare stmt: connecion closed");
@@ -764,6 +794,9 @@ class MySQLConnection {
     return value;
   }
 
+  /// Close this connection
+  ///
+  /// This is an error to use this connection after connection has been closed
   Future<void> close() async {
     final packet = MySQLPacket(
       sequenceID: 0,
@@ -806,16 +839,31 @@ class MySQLConnection {
   }
 }
 
+/// Base class to represent result of calling [MySQLConnection.execute] and [PreparedStmt.execute]
 abstract class IResultSet {
+  /// Number of colums in this result if any
   int get numOfColumns;
+
+  /// Number of rows in this result if any (unavailable for iterable results)
   int get numOfRows;
+
+  /// Number of affected rows
   BigInt get affectedRows;
+
+  /// Last insert ID
   BigInt get lastInsertID;
+
+  /// Provides access to data rows (unavailable for iterable results)
   Iterable<ResultSetRow> get rows;
+
+  /// Use [cols] to get info about returned columns
   Iterable<ResultSetColumn> get cols;
+
+  /// Provides Stream like access to data rows. Use [rowsStream] to get rows from iterable results
   Stream<ResultSetRow> get rowsStream => Stream.fromIterable(rows);
 }
 
+/// Represents result of [MySQLConnection.execute] method
 class ResultSet extends IResultSet {
   final MySQLPacketResultSet _resultSetPacket;
 
@@ -856,6 +904,7 @@ class ResultSet extends IResultSet {
   }
 }
 
+/// Represents result of [MySQLConnection.execute] method when passing iterable = true
 class IterableResultSet implements IResultSet {
   final List<MySQLColumnDefinitionPacket> _columns;
   late StreamController<ResultSetRow> _controller;
@@ -901,6 +950,7 @@ class IterableResultSet implements IResultSet {
       );
 }
 
+/// Represents result of [PreparedStmt.execute] method
 class PreparedStmtResultSet extends IResultSet {
   final MySQLPacketBinaryResultSet _resultSetPacket;
 
@@ -941,6 +991,7 @@ class PreparedStmtResultSet extends IResultSet {
   }
 }
 
+/// Represents result of [PreparedStmt.execute] method when using iterable = true
 class IterablePreparedStmtResultSet extends IResultSet {
   final List<MySQLColumnDefinitionPacket> _columns;
   late StreamController<ResultSetRow> _controller;
@@ -986,6 +1037,7 @@ class IterablePreparedStmtResultSet extends IResultSet {
   }
 }
 
+/// Represents empty result set
 class EmptyResultSet extends IResultSet {
   final MySQLPacketOK _okPacket;
 
@@ -1010,6 +1062,7 @@ class EmptyResultSet extends IResultSet {
   Iterable<ResultSetColumn> get cols => List<ResultSetColumn>.empty();
 }
 
+/// Represents result set row data
 class ResultSetRow {
   final List<MySQLColumnDefinitionPacket> _colDefs;
   final List<String?> _values;
@@ -1020,8 +1073,10 @@ class ResultSetRow {
   })  : _colDefs = colDefs,
         _values = values;
 
+  /// Get number of columns for this row
   int get numOfColumns => _colDefs.length;
 
+  /// Get column data by column index (starting form 0)
   String colAt(int colIndex) {
     if (colIndex >= _values.length) {
       throw Exception("Column index is out of range");
@@ -1032,6 +1087,7 @@ class ResultSetRow {
     return value;
   }
 
+  /// Get column data by column name
   String colByName(String columnName) {
     final colIndex =
         _colDefs.indexWhere((element) => element.name == columnName);
@@ -1049,6 +1105,7 @@ class ResultSetRow {
     return value;
   }
 
+  /// Get data for all columns
   Map<String, String?> assoc() {
     final result = <String, String?>{};
 
@@ -1063,6 +1120,7 @@ class ResultSetRow {
   }
 }
 
+/// Represents column definition
 class ResultSetColumn {
   String name;
   int type;
@@ -1073,6 +1131,7 @@ class ResultSetColumn {
   });
 }
 
+/// Prepared statement class
 class PreparedStmt {
   final MySQLPacketStmtPrepareOK _preparedPacket;
   final MySQLConnection _connection;
@@ -1088,6 +1147,7 @@ class PreparedStmt {
 
   int get numOfParams => _preparedPacket.numOfParams;
 
+  /// Executes this prepared statement with given [params]
   Future<IResultSet> execute(List<dynamic> params) async {
     if (numOfParams != params.length) {
       throw Exception(
@@ -1098,6 +1158,10 @@ class PreparedStmt {
     return _connection._executePreparedStmt(this, params, _iterable);
   }
 
+  /// Deallocates this prepared statement
+  ///
+  /// Use this method to prevent memory leaks for long running connections
+  /// All prepared statements are automatically deallocated by database when connection is closed
   Future<void> deallocate() {
     return _connection._deallocatePreparedStmt(this);
   }

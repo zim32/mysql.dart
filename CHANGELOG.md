@@ -1,3 +1,7 @@
+## 0.0.7
+
+- Add doc comments and example
+
 ## 0.0.6
 
 - Implement iterable result sets
