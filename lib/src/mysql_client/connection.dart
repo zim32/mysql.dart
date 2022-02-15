@@ -23,10 +23,11 @@ class MySQLConnection {
   final String _username;
   final String _password;
   final String? _databaseName;
-  void Function(Uint8List data)? _responseCallback;
+  Future<void> Function(Uint8List data)? _responseCallback;
   final List<void Function()> _onCloseCallbacks = [];
   bool _inTransaction = false;
   final bool _secure;
+  final List<int> _incompleteBufferData = [];
 
   MySQLConnection._({
     required Socket socket,
@@ -89,9 +90,14 @@ class MySQLConnection {
 
     _state = _MySQLConnectionState.waitInitialHandshake;
 
-    _socketSubscription = _socket.listen((data) {
+    _socketSubscription = _socket.listen((data) async {
       for (final chunk in _splitPackets(data)) {
-        _processSocketData(chunk);
+        try {
+          await _processSocketData(chunk);
+        } catch (e) {
+          await _closeSocketAndCallHandlers();
+          rethrow;
+        }
       }
     });
 
@@ -191,11 +197,32 @@ class MySQLConnection {
   }
 
   Iterable<Uint8List> _splitPackets(Uint8List data) sync* {
+    if (_incompleteBufferData.isNotEmpty) {
+      final tmp = Uint8List.fromList(_incompleteBufferData + data.toList());
+      data = tmp;
+      _incompleteBufferData.clear();
+    }
+
     Uint8List view = data;
 
     while (true) {
+      // if packet size is less then 4 bytes, we can not even detect payload length and total packet size
+      // so just append data to incomplete buffer
+      if (view.length < 4) {
+        _incompleteBufferData.addAll(view);
+        break;
+      }
+
       final packetLength = MySQLPacket.getPacketLength(view);
+
+      if (view.lengthInBytes < packetLength) {
+        // incomplete packet
+        _incompleteBufferData.addAll(view);
+        break;
+      }
+
       final chunk = Uint8List.sublistView(view, 0, packetLength);
+
       yield chunk;
 
       view = Uint8List.sublistView(view, packetLength);
@@ -327,7 +354,12 @@ class MySQLConnection {
     _state = _MySQLConnectionState.waitingCommandResponse;
 
     if (params != null && params.isNotEmpty) {
-      query = _substitureParams(query, params);
+      try {
+        query = _substitureParams(query, params);
+      } catch (e) {
+        _state = _MySQLConnectionState.connectionEstablished;
+        rethrow;
+      }
     }
 
     final payload = MySQLPacketCommQuery(query: query);
@@ -356,7 +388,7 @@ class MySQLConnection {
     IterableResultSet? iterableResultSet;
     StreamSink<ResultSetRow>? sink;
 
-    _responseCallback = (data) {
+    _responseCallback = (data) async {
       MySQLPacket? packet;
 
       switch (state) {
@@ -382,11 +414,6 @@ class MySQLConnection {
           packet = MySQLPacket.decodeGenericPacket(data);
           if (packet.isEOFPacket()) {
             state = 3;
-          } else if (packet.isErrorPacket()) {
-            final errMsg = (packet.payload as MySQLPacketError).errorMessage;
-            throw Exception("MySQL exception: $errMsg");
-          } else {
-            throw Exception("Unexcpected packet type");
           }
           break;
         case 3:
@@ -406,7 +433,7 @@ class MySQLConnection {
               state = 4;
 
               _state = _MySQLConnectionState.connectionEstablished;
-              sink!.close();
+              await sink!.close();
               return;
             }
 
@@ -441,7 +468,10 @@ class MySQLConnection {
         final payload = packet.payload;
 
         if (payload is MySQLPacketError) {
-          completer.completeError("MySQL error: " + payload.errorMessage);
+          completer.completeError(
+            Exception("MySQL error: " + payload.errorMessage),
+          );
+          _state = _MySQLConnectionState.connectionEstablished;
           return;
         } else if (payload is MySQLPacketOK) {
           // do nothing
@@ -458,7 +488,7 @@ class MySQLConnection {
           assert(iterable == false);
           resultSetRows.add(payload);
         } else {
-          completer.completeError(
+          throw Exception(
             "Unexpected payload received in response to COMM_QUERY request",
           );
         }
@@ -495,6 +525,9 @@ class MySQLConnection {
   }
 
   String _substitureParams(String query, Map<String, dynamic> params) {
+    // convert params to string
+    Map<String, String> convertedParams = {};
+
     for (final param in params.entries) {
       String value;
 
@@ -510,7 +543,47 @@ class MySQLConnection {
         value = "'" + _escapeString(param.value.toString()) + "'";
       }
 
-      query = query.replaceAll(":" + param.key, value);
+      convertedParams[param.key] = value;
+    }
+
+    // substitute params
+
+    final pattern = RegExp(r":(\w+)");
+
+    final matches = pattern.allMatches(query).where((match) {
+      final subString = query.substring(0, match.start);
+
+      int count = "'".allMatches(subString).length;
+      if (count > 0 && count.isOdd) {
+        return false;
+      }
+
+      count = '"'.allMatches(subString).length;
+      if (count > 0 && count.isOdd) {
+        return false;
+      }
+
+      return true;
+    }).toList();
+
+    int lengthShift = 0;
+
+    for (final match in matches) {
+      final paramName = match.group(1);
+
+      // check param exists
+      if (false == convertedParams.containsKey(paramName)) {
+        throw Exception("There is no parameter with name: $paramName");
+      }
+
+      final newQuery = query.replaceFirst(
+        match.group(0)!,
+        convertedParams[paramName]!,
+        match.start + lengthShift,
+      );
+
+      lengthShift += newQuery.length - query.length;
+      query = newQuery;
     }
 
     return query;
@@ -554,7 +627,7 @@ class MySQLConnection {
     int state = 0;
     MySQLPacketStmtPrepareOK? preparedPacket;
 
-    _responseCallback = (data) {
+    _responseCallback = (data) async {
       MySQLPacket? packet;
 
       switch (state) {
@@ -587,9 +660,13 @@ class MySQLConnection {
         if (payload is MySQLPacketStmtPrepareOK) {
           preparedPacket = payload;
         } else if (payload is MySQLPacketError) {
-          throw Exception("MySQL error: ${payload.errorMessage}");
-        } else {
           completer.completeError(
+            Exception("MySQL error: ${payload.errorMessage}"),
+          );
+          _state = _MySQLConnectionState.connectionEstablished;
+          return;
+        } else {
+          throw Exception(
             "Unexpected payload received in response to COMM_STMT_PREPARE request",
           );
         }
@@ -647,7 +724,7 @@ class MySQLConnection {
     IterablePreparedStmtResultSet? iterableResultSet;
     StreamSink<ResultSetRow>? sink;
 
-    _responseCallback = (data) {
+    _responseCallback = (data) async {
       MySQLPacket? packet;
 
       switch (state) {
@@ -697,7 +774,7 @@ class MySQLConnection {
               state = 4;
 
               _state = _MySQLConnectionState.connectionEstablished;
-              sink!.close();
+              await sink!.close();
               return;
             }
 
@@ -738,7 +815,10 @@ class MySQLConnection {
         final payload = packet.payload;
 
         if (payload is MySQLPacketError) {
-          completer.completeError("MySQL error: " + payload.errorMessage);
+          completer.completeError(
+            Exception("MySQL error: " + payload.errorMessage),
+          );
+          _state = _MySQLConnectionState.connectionEstablished;
           return;
         } else if (payload is MySQLPacketOK) {
           // do nothing
@@ -754,7 +834,7 @@ class MySQLConnection {
         } else if (payload is MySQLBinaryResultSetRowPacket) {
           resultSetRows.add(payload);
         } else {
-          completer.completeError(
+          throw Exception(
             "Unexpected payload received in response to COMM_QUERY request",
           );
         }
@@ -809,6 +889,10 @@ class MySQLConnection {
     _socket.add(packet.encode());
     _state = _MySQLConnectionState.quitCommandSend;
 
+    await _closeSocketAndCallHandlers();
+  }
+
+  Future<void> _closeSocketAndCallHandlers() async {
     if (_socketSubscription != null) {
       await _socketSubscription!.cancel();
     }
@@ -818,6 +902,8 @@ class MySQLConnection {
     await Future.delayed(Duration(milliseconds: 10));
     await _socket.close();
     _socket.destroy();
+
+    _incompleteBufferData.clear();
 
     for (var element in _onCloseCallbacks) {
       element();
@@ -1079,18 +1165,18 @@ class ResultSetRow {
   int get numOfColumns => _colDefs.length;
 
   /// Get column data by column index (starting form 0)
-  String colAt(int colIndex) {
+  String? colAt(int colIndex) {
     if (colIndex >= _values.length) {
       throw Exception("Column index is out of range");
     }
 
-    final value = _values[colIndex]!;
+    final value = _values[colIndex];
 
     return value;
   }
 
   /// Get column data by column name
-  String colByName(String columnName) {
+  String? colByName(String columnName) {
     final colIndex =
         _colDefs.indexWhere((element) => element.name == columnName);
 
@@ -1102,7 +1188,7 @@ class ResultSetRow {
       throw Exception("Column index is out of range");
     }
 
-    final value = _values[colIndex]!;
+    final value = _values[colIndex];
 
     return value;
   }

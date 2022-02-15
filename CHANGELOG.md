@@ -1,3 +1,10 @@
+## 0.0.8
+
+- Improve error handling
+- Add handling of incomplete packets in _spliPackets() method
+- Fix parameters substitution
+- Add mysql_client tests
+
 ## 0.0.7
 
 - Add doc comments and example
