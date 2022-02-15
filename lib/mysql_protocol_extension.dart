@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'package:tuple/tuple.dart';
@@ -7,12 +8,12 @@ extension MySQLUint8ListExtension on Uint8List {
     final tmp = Uint8List.sublistView(this, startOffset)
         .takeWhile((value) => value != 0);
 
-    return String.fromCharCodes(tmp);
+    return utf8.decode(tmp.toList());
   }
 
   String getStringEOF(int startOffset) {
     final tmp = Uint8List.sublistView(this, startOffset);
-    return String.fromCharCodes(tmp);
+    return utf8.decode(tmp);
   }
 
   Tuple2<String, int> getLengthEncodedString(int startOffset) {
@@ -27,8 +28,7 @@ extension MySQLUint8ListExtension on Uint8List {
       strLength.item1.toInt() + 1,
     );
 
-    return Tuple2(
-        String.fromCharCodes(tmp2), strLength.item2 + strLength.item1.toInt());
+    return Tuple2(utf8.decode(tmp2), strLength.item2 + strLength.item1.toInt());
   }
 }
 

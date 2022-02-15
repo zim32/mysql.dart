@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'package:mysql_client/mysql_protocol.dart';
@@ -14,7 +15,7 @@ class MySQLPacketAuthSwitchResponse extends MySQLPacketPayload {
     required Uint8List challenge,
   }) {
     assert(challenge.length == 20);
-    final passwordBytes = password.codeUnits;
+    final passwordBytes = utf8.encode(password);
 
     final authData =
         xor(sha1(passwordBytes), sha1(challenge + sha1(sha1(passwordBytes))));

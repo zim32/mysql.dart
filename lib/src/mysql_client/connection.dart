@@ -22,6 +22,7 @@ class MySQLConnection {
   _MySQLConnectionState _state = _MySQLConnectionState.fresh;
   final String _username;
   final String _password;
+  final String _collation;
   final String? _databaseName;
   Future<void> Function(Uint8List data)? _responseCallback;
   final List<void Function()> _onCloseCallbacks = [];
@@ -33,13 +34,15 @@ class MySQLConnection {
     required Socket socket,
     required String username,
     required String password,
+    required String collation,
     bool secure = true,
     String? databaseName,
   })  : _socket = socket,
         _username = username,
         _password = password,
         _databaseName = databaseName,
-        _secure = secure;
+        _secure = secure,
+        _collation = collation;
 
   /// Creates connection with provided options
   ///
@@ -55,6 +58,7 @@ class MySQLConnection {
     required String password,
     bool secure = true,
     String? databaseName,
+    String collation = 'utf8_general_ci',
   }) async {
     final socket = await Socket.connect(host, port);
     socket.setOption(SocketOption.tcpNoDelay, true);
@@ -65,6 +69,7 @@ class MySQLConnection {
       password: password,
       databaseName: databaseName,
       secure: secure,
+      collation: collation,
     );
 
     return client;
@@ -105,6 +110,7 @@ class MySQLConnection {
       _handleSocketClose();
     });
 
+    // wait for connection established
     await Future.doWhile(() async {
       if (_state == _MySQLConnectionState.connectionEstablished) {
         return false;
@@ -114,6 +120,11 @@ class MySQLConnection {
     }).timeout(Duration(
       milliseconds: timeoutMs,
     ));
+
+    // set connection charset
+    await execute(
+      'SET @@collation_connection=$_collation, @@character_set_client=utf8, @@character_set_connection=utf8, @@character_set_results=utf8',
+    );
   }
 
   void _handleSocketClose() {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart' show ByteDataWriter;
 import 'package:mysql_client/mysql_protocol.dart';
@@ -16,7 +17,7 @@ class MySQLPacketCommInitDB extends MySQLPacketPayload {
 
     // command type
     buffer.writeUint8(2);
-    buffer.write(schemaName.codeUnits);
+    buffer.write(utf8.encode(schemaName));
 
     return buffer.toBytes();
   }
@@ -35,7 +36,7 @@ class MySQLPacketCommQuery extends MySQLPacketPayload {
 
     // command type
     buffer.writeUint8(3);
-    buffer.write(query.codeUnits);
+    buffer.write(utf8.encode(query));
 
     return buffer.toBytes();
   }
@@ -54,7 +55,7 @@ class MySQLPacketCommStmtPrepare extends MySQLPacketPayload {
 
     // command type
     buffer.writeUint8(0x16);
-    buffer.write(query.codeUnits);
+    buffer.write(utf8.encode(query));
 
     return buffer.toBytes();
   }
@@ -124,7 +125,7 @@ class MySQLPacketCommStmtExecute extends MySQLPacketPayload {
         if (param != null) {
           final String value = param.toString();
           buffer.writeVariableEncInt(value.length);
-          buffer.write(value.codeUnits);
+          buffer.write(utf8.encode(value));
         }
       }
     }

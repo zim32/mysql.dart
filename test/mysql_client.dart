@@ -37,7 +37,9 @@ void main() {
       expect(conn.connected, true);
 
       await conn.execute("DROP DATABASE IF EXISTS $db");
-      await conn.execute("CREATE DATABASE $db");
+      await conn.execute(
+        "CREATE DATABASE $db CHARACTER SET utf8 COLLATE utf8_general_ci",
+      );
       await conn.execute("USE $db");
       await conn.execute("""
 create table book
@@ -60,7 +62,7 @@ create table book
         "INSERT INTO book (author_id, title, price, created_at) VALUES (:author, :title, :price, :created)",
         {
           "author": null,
-          "title": "New book",
+          "title": "Новая книга",
           "price": 100,
           "created": "2020-01-01 01:00:15",
         },
@@ -91,14 +93,14 @@ create table book
 
       expect(row.colAt(0), "1");
       expect(row.colAt(1), null);
-      expect(row.colAt(2), "New book");
+      expect(row.colAt(2), "Новая книга");
       expect(row.colAt(3), "100");
       expect(row.colAt(4), "2020-01-01 01:00:15");
       expect(row.colAt(5), null);
 
       expect(row.colByName('id'), "1");
       expect(row.colByName('author_id'), null);
-      expect(row.colByName('title'), "New book");
+      expect(row.colByName('title'), "Новая книга");
       expect(row.colByName('price'), "100");
       expect(row.colByName('created_at'), "2020-01-01 01:00:15");
       expect(row.colByName('some_time'), null);
