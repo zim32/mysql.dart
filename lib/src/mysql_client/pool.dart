@@ -10,6 +10,7 @@ class MySQLConnectionPool {
   final int maxConnections;
   final String? databaseName;
   final bool secure;
+  final String collation;
 
   final List<MySQLConnection> _activeConnections = [];
   final List<MySQLConnection> _idleConnections = [];
@@ -26,6 +27,7 @@ class MySQLConnectionPool {
     required this.maxConnections,
     this.databaseName,
     this.secure = true,
+    this.collation = 'utf8_general_ci',
   }) : _password = password;
 
   /// Number of active connections in this pool
@@ -103,6 +105,7 @@ class MySQLConnectionPool {
         password: _password,
         databaseName: databaseName,
         secure: secure,
+        collation: collation,
       );
 
       await conn.connect();
