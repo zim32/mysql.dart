@@ -498,7 +498,9 @@ class MySQLConnection {
     for (final param in params.entries) {
       String value;
 
-      if (param.value is String) {
+      if (param.value == null) {
+        value = "NULL";
+      } else if (param.value is String) {
         value = "'" + _escapeString(param.value) + "'";
       } else if (param.value is num) {
         value = param.value.toString();
