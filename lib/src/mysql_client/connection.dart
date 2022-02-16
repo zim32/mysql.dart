@@ -44,13 +44,24 @@ class MySQLConnection {
         _secure = secure,
         _collation = collation;
 
-  /// Creates connection with provided options
+  /// Creates connection with provided options.
   ///
-  /// [host] host to connect to
-  /// [userName] database user name
-  /// [password] user password
+  /// Keep in mind, **this is async** function. So you need to await result.
+  /// Don't forget to call [MySQLConnection.connect] to actually connect to database, or you will get errors.
+  /// See examples directory for code samples.
   ///
-  /// By default connection uses TLS, if you don't want to use TLS, set [secure] to false
+  /// [host] host to connect to.
+  /// [userName] database user name.
+  /// [password] user password.
+  /// [secure] If true - TLS will be used, if false - ordinary TCL connection.
+  /// [databaseName] Optional database name to connect to.
+  /// [collation] Optional collaction to use.
+  ///
+  /// By default after connection is established, this library executes query to switch connection charset and collation:
+  ///
+  /// ```
+  /// SET @@collation_connection=$_collation, @@character_set_client=utf8, @@character_set_connection=utf8, @@character_set_results=utf8
+  /// ```
   static Future<MySQLConnection> createConnection({
     required String host,
     required int port,
@@ -85,7 +96,7 @@ class MySQLConnection {
     _onCloseCallbacks.add(callback);
   }
 
-  /// Initiate connection to database
+  /// Initiate connection to database. To close connection, invoke [MySQLConnection.close] method.
   ///
   /// Default [timeoutMs] is 5000 milliseconds
   Future<void> connect({int timeoutMs = 5000}) async {
