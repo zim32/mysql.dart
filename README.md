@@ -43,6 +43,9 @@ final conn = await MySQLConnection.createConnection(
   password: "your_password",
   databaseName: "your_database_name", // optional
 );
+
+// actually connect to database
+await conn.connect();
 ```
 
 **Warning**
