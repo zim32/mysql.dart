@@ -568,8 +568,7 @@ class MySQLConnection {
       convertedParams[param.key] = value;
     }
 
-    // substitute params
-
+    // find all :placeholders, which can be substituted
     final pattern = RegExp(r":(\w+)");
 
     final matches = pattern.allMatches(query).where((match) {

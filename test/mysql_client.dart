@@ -55,6 +55,12 @@ create table book
     },
   );
 
+  tearDownAll(
+    () async {
+      await conn.close();
+    },
+  );
+
   test(
     "testing insert",
     () async {
@@ -118,6 +124,27 @@ create table book
           },
         );
 
+        fail("Exception is not thrown");
+      } catch (e) {
+        expect(e, isA<Exception>());
+      }
+    },
+  );
+
+  test(
+    "testing error is thrown if null passed for not-null column",
+    () async {
+      try {
+        await conn.execute(
+          "INSERT INTO book (author_id, title, price, created_at, some_time) VALUES (:author, :title, :price, :created, :time)",
+          {
+            "author": null,
+            "title": null,
+            "price": 100,
+            "created": "2020-01-01 01:00:15",
+            "time": "01:15:25"
+          },
+        );
         fail("Exception is not thrown");
       } catch (e) {
         expect(e, isA<Exception>());
@@ -249,6 +276,24 @@ create table book
   );
 
   test(
+    "testing empty result set",
+    () async {
+      final result = await conn.execute("SELECT * FROM book WHERE id = 99999");
+      expect(result.numOfRows, 0);
+    },
+  );
+
+  test(
+    "testing empty result for prepared statement",
+    () async {
+      final stmt = await conn.prepare("SELECT * FROM book WHERE id = 99999");
+      final result = await stmt.execute([]);
+      expect(result.numOfRows, 0);
+      await stmt.deallocate();
+    },
+  );
+
+  test(
     "stress test: insert 5000 rows",
     () async {
       await conn.execute('TRUNCATE TABLE book');
@@ -278,5 +323,6 @@ create table book
 
       expect(receivedRows, 5000);
     },
+    timeout: Timeout(Duration(seconds: 60)),
   );
 }
