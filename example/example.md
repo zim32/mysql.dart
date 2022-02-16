@@ -1,4 +1,4 @@
-See [example](example/) directory for nore examples
+See [example](../example/) directory for nore examples
 
 ```dart
 import 'package:mysql_client/mysql_client.dart';
