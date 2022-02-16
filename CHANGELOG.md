@@ -1,3 +1,7 @@
+## 0.0.10
+
+- Add more docs and examples
+
 ## 0.0.9
 
 - Use utf8 charset by default
