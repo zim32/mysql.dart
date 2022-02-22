@@ -1,3 +1,8 @@
+## 0.0.11
+
+- Implement typed access to column data
+- Add tests
+
 ## 0.0.10
 
 - Add more docs and examples
