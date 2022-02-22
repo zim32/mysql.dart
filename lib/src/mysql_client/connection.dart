@@ -1008,6 +1008,7 @@ class ResultSet extends IResultSet {
       (e) => ResultSetColumn(
         name: e.name,
         type: e.type,
+        length: e.columnLength,
       ),
     );
   }
@@ -1049,6 +1050,7 @@ class IterableResultSet implements IResultSet {
       (e) => ResultSetColumn(
         name: e.name,
         type: e.type,
+        length: e.columnLength,
       ),
     );
   }
@@ -1095,6 +1097,7 @@ class PreparedStmtResultSet extends IResultSet {
       (e) => ResultSetColumn(
         name: e.name,
         type: e.type,
+        length: e.columnLength,
       ),
     );
   }
@@ -1141,6 +1144,7 @@ class IterablePreparedStmtResultSet extends IResultSet {
       (e) => ResultSetColumn(
         name: e.name,
         type: e.type,
+        length: e.columnLength,
       ),
     );
   }
@@ -1196,6 +1200,20 @@ class ResultSetRow {
     return value;
   }
 
+  /// Same as [colAt] but performs conversion of string data, into provided type [T], if possible
+  ///
+  /// Conversion is "typesafe", meaning that actual MySQL column type will be checked,
+  /// to decide is it possible to make such a conversion
+  ///
+  /// Throws [Exception] if conversion is not possible
+  T? typedColAt<T>(int colIndex) {
+    final value = colAt(colIndex);
+    final colDef = _colDefs[colIndex];
+
+    return colDef.type
+        .convertStringValueToProvidedType<T>(value, colDef.columnLength);
+  }
+
   /// Get column data by column name
   String? colByName(String columnName) {
     final colIndex =
@@ -1214,6 +1232,24 @@ class ResultSetRow {
     return value;
   }
 
+  /// Same as [colByName] but performs conversion of string data, into provided type [T], if possible
+  ///
+  /// Conversion is "typesafe", meaning that actual MySQL column type will be checked,
+  /// to decide is it possible to make such a conversion
+  ///
+  /// Throws [Exception] if conversion is not possible
+  T? typedColByName<T>(String columnName) {
+    final value = colByName(columnName);
+
+    final colIndex =
+        _colDefs.indexWhere((element) => element.name == columnName);
+
+    final colDef = _colDefs[colIndex];
+
+    return colDef.type
+        .convertStringValueToProvidedType<T>(value, colDef.columnLength);
+  }
+
   /// Get data for all columns
   Map<String, String?> assoc() {
     final result = <String, String?>{};
@@ -1227,16 +1263,66 @@ class ResultSetRow {
 
     return result;
   }
+
+  /// Same as [assoc] but detects best dart type for columns, and converts string data into appropriate types
+  Map<String, dynamic> typedAssoc() {
+    final result = <String, dynamic>{};
+
+    int colIndex = 0;
+
+    for (final colDef in _colDefs) {
+      final value = _values[colIndex];
+
+      if (value == null) {
+        result[colDef.name] = null;
+        colIndex++;
+        continue;
+      }
+
+      final dartType = colDef.type.getBestMatchDartType(colDef.columnLength);
+
+      dynamic decodedValue;
+
+      switch (dartType) {
+        case int:
+          decodedValue = int.parse(value);
+          break;
+        case double:
+          decodedValue = double.parse(value);
+          break;
+        case num:
+          decodedValue = num.parse(value);
+          break;
+        case bool:
+          decodedValue = int.parse(value) > 0;
+          break;
+        case String:
+          decodedValue = value;
+          break;
+        default:
+          decodedValue = value;
+          break;
+      }
+
+      result[colDef.name] = decodedValue;
+
+      colIndex++;
+    }
+
+    return result;
+  }
 }
 
 /// Represents column definition
 class ResultSetColumn {
   String name;
-  int type;
+  MySQLColumnType type;
+  int length;
 
   ResultSetColumn({
     required this.name,
     required this.type,
+    required this.length,
   });
 }
 

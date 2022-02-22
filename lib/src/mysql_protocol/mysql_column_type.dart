@@ -33,6 +33,156 @@ const mysqlColumnTypeVarString = 0xfd;
 const mysqlColumnTypeString = 0xfe;
 const mysqlColumnTypeGeometry = 0xff;
 
+class MySQLColumnType {
+  final int _value;
+
+  const MySQLColumnType._(int value) : _value = value;
+  factory MySQLColumnType.create(int value) => MySQLColumnType._(value);
+  int get intVal => _value;
+
+  static const decimalType = MySQLColumnType._(mysqlColumnTypeDecimal);
+  static const tinyType = MySQLColumnType._(mysqlColumnTypeTiny);
+  static const shortType = MySQLColumnType._(mysqlColumnTypeShort);
+  static const longType = MySQLColumnType._(mysqlColumnTypeLong);
+  static const floatType = MySQLColumnType._(mysqlColumnTypeFloat);
+  static const doubleType = MySQLColumnType._(mysqlColumnTypeDouble);
+  static const nullType = MySQLColumnType._(mysqlColumnTypeNull);
+  static const timestampType = MySQLColumnType._(mysqlColumnTypeTimestamp);
+  static const longLongType = MySQLColumnType._(mysqlColumnTypeLongLong);
+  static const int24Type = MySQLColumnType._(mysqlColumnTypeInt24);
+  static const dateType = MySQLColumnType._(mysqlColumnTypeDate);
+  static const timeType = MySQLColumnType._(mysqlColumnTypeTime);
+  static const dateTimeType = MySQLColumnType._(mysqlColumnTypeDateTime);
+  static const yearType = MySQLColumnType._(mysqlColumnTypeYear);
+  static const newDateType = MySQLColumnType._(mysqlColumnTypeNewDate);
+  static const vatChartType = MySQLColumnType._(mysqlColumnTypeVarChar);
+  static const bitType = MySQLColumnType._(mysqlColumnTypeBit);
+  static const timestamp2Type = MySQLColumnType._(mysqlColumnTypeTimestamp2);
+  static const dateTime2Type = MySQLColumnType._(mysqlColumnTypeDateTime2);
+  static const time2Type = MySQLColumnType._(mysqlColumnTypeTime2);
+  static const newDecimalType = MySQLColumnType._(mysqlColumnTypeNewDecimal);
+  static const enumType = MySQLColumnType._(mysqlColumnTypeEnum);
+  static const setType = MySQLColumnType._(mysqlColumnTypeSet);
+  static const tinyBlobType = MySQLColumnType._(mysqlColumnTypeTinyBlob);
+  static const mediumBlobType = MySQLColumnType._(mysqlColumnTypeMediumBlob);
+  static const longBlobType = MySQLColumnType._(mysqlColumnTypeLongBlob);
+  static const blocType = MySQLColumnType._(mysqlColumnTypeBlob);
+  static const varStringType = MySQLColumnType._(mysqlColumnTypeVarString);
+  static const stringType = MySQLColumnType._(mysqlColumnTypeString);
+  static const geometryType = MySQLColumnType._(mysqlColumnTypeGeometry);
+
+  T? convertStringValueToProvidedType<T>(String? value, [int? columnLength]) {
+    if (value == null) {
+      return null;
+    }
+
+    if (T == String || T == dynamic) {
+      return value as T;
+    }
+
+    if (T == bool) {
+      if (_value == mysqlColumnTypeTiny && columnLength == 1) {
+        return int.parse(value) > 0 as T;
+      } else {
+        throw Exception(
+          "Can not convert MySQL type $_value to requested type bool",
+        );
+      }
+    }
+
+    // convert to int
+    if (T == int) {
+      switch (_value) {
+        // types convertible to dart int
+        case mysqlColumnTypeTiny:
+        case mysqlColumnTypeShort:
+        case mysqlColumnTypeLong:
+        case mysqlColumnTypeLongLong:
+        case mysqlColumnTypeInt24:
+        case mysqlColumnTypeYear:
+          return int.parse(value) as T;
+        default:
+          throw Exception(
+            "Can not convert MySQL type $_value to requested type int",
+          );
+      }
+    }
+
+    if (T == double) {
+      switch (_value) {
+        case mysqlColumnTypeTiny:
+        case mysqlColumnTypeShort:
+        case mysqlColumnTypeLong:
+        case mysqlColumnTypeLongLong:
+        case mysqlColumnTypeInt24:
+        case mysqlColumnTypeFloat:
+        case mysqlColumnTypeDouble:
+          return double.parse(value) as T;
+        default:
+          throw Exception(
+            "Can not convert MySQL type $_value to requested type double",
+          );
+      }
+    }
+
+    if (T == num) {
+      switch (_value) {
+        case mysqlColumnTypeTiny:
+        case mysqlColumnTypeShort:
+        case mysqlColumnTypeLong:
+        case mysqlColumnTypeLongLong:
+        case mysqlColumnTypeInt24:
+        case mysqlColumnTypeFloat:
+        case mysqlColumnTypeDouble:
+          return num.parse(value) as T;
+        default:
+          throw Exception(
+            "Can not convert MySQL type $_value to requested type num",
+          );
+      }
+    }
+
+    throw Exception(
+      "Can not convert MySQL type ${T.runtimeType} to requested type int",
+    );
+  }
+
+  Type getBestMatchDartType(int columnLength) {
+    switch (_value) {
+      case mysqlColumnTypeString:
+      case mysqlColumnTypeVarString:
+      case mysqlColumnTypeVarChar:
+      case mysqlColumnTypeEnum:
+      case mysqlColumnTypeSet:
+      case mysqlColumnTypeLongBlob:
+      case mysqlColumnTypeMediumBlob:
+      case mysqlColumnTypeBlob:
+      case mysqlColumnTypeTinyBlob:
+      case mysqlColumnTypeGeometry:
+      case mysqlColumnTypeBit:
+      case mysqlColumnTypeDecimal:
+      case mysqlColumnTypeNewDecimal:
+        return String;
+      case mysqlColumnTypeTiny:
+        if (columnLength == 1) {
+          return bool;
+        } else {
+          return int;
+        }
+      case mysqlColumnTypeShort:
+      case mysqlColumnTypeLong:
+      case mysqlColumnTypeLongLong:
+      case mysqlColumnTypeInt24:
+        return int;
+      case mysqlColumnTypeFloat:
+      case mysqlColumnTypeDouble:
+        return double;
+      default:
+        return String;
+    }
+  }
+}
+
 Tuple2<String, int> parseBinaryColumnData(
   int columnType,
   ByteData data,

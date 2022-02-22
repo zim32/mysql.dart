@@ -11,7 +11,7 @@ class MySQLColumnDefinitionPacket extends MySQLPacketPayload {
   String orgName;
   int charset;
   int columnLength;
-  int type;
+  MySQLColumnType type;
 
   MySQLColumnDefinitionPacket({
     required this.catalog,
@@ -68,7 +68,7 @@ class MySQLColumnDefinitionPacket extends MySQLPacketPayload {
       orgTable: orgTable.item1,
       schema: schema.item1,
       table: table.item1,
-      type: type,
+      type: MySQLColumnType.create(type),
     );
   }
 

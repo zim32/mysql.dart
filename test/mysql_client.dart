@@ -103,13 +103,36 @@ create table book
       expect(row.colAt(3), "100");
       expect(row.colAt(4), "2020-01-01 01:00:15");
       expect(row.colAt(5), null);
+      expect(row.typedColAt<int>(0), 1);
+      expect(row.typedColAt<int>(3), 100);
+      expect(row.typedColAt<double>(3), 100.00);
 
       expect(row.colByName('id'), "1");
       expect(row.colByName('author_id'), null);
       expect(row.colByName('title'), "Новая книга");
       expect(row.colByName('price'), "100");
+      expect(row.typedColByName<int>('price'), 100);
+      expect(row.typedColByName<double>('price'), 100.00);
       expect(row.colByName('created_at'), "2020-01-01 01:00:15");
       expect(row.colByName('some_time'), null);
+
+      expect(row.assoc(), {
+        "id": "1",
+        "author_id": null,
+        "title": "Новая книга",
+        "price": "100",
+        "created_at": "2020-01-01 01:00:15",
+        "some_time": null,
+      });
+
+      expect(row.typedAssoc(), {
+        "id": 1,
+        "author_id": null,
+        "title": "Новая книга",
+        "price": 100,
+        "created_at": "2020-01-01 01:00:15",
+        "some_time": null,
+      });
     },
   );
 
@@ -214,6 +237,10 @@ create table book
       expect(row.colAt(3), "100");
       expect(row.colAt(4), "2020-01-01 01:00:15");
       expect(row.colAt(5), "01:15:25");
+      expect(row.typedColAt<int>(0), 2);
+      expect(row.typedColAt<int>(3), 100);
+      expect(row.typedColAt<num>(3), 100);
+      expect(row.typedColAt<double>(3), 100.00);
 
       expect(row.colByName('id'), "2");
       expect(row.colByName('author_id'), null);
