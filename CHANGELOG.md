@@ -1,3 +1,7 @@
+## 0.0.12
+
+- Add info about typed access to readme and examples
+
 ## 0.0.11
 
 - Implement typed access to column data

@@ -66,7 +66,8 @@ var result = await pool.execute("SELECT * FROM book WHERE id = :id", {"id": 1});
 ```
 
 There are two groups of methods to access column data. 
-First group get result as strings. Second one (methods starting with **typed** prefix) performs conversion to specified type.
+First group returns result as strings.
+Second one (methods starting with **typed** prefix) performs conversion to specified type.
 
 F.e.:  
 ```dart
