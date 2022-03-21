@@ -48,11 +48,17 @@ Future<void> main(List<String> arguments) async {
 
   // print query result
   for (final row in result.rows) {
-    // print(row.colAt(0));
-    // print(row.colByName("title"));
+    print(row.colAt(0)); // get id as String
+    print(row.colByName("title")); // get title as String
+
+    print(row.typedColAt<int>(0)); // get id as int
+    print(row.typedColByName<double>("price")); // get price as double
 
     // print all rows as Map<String, String>
     print(row.assoc());
+
+    // autodetect best Dart type based on column type and return Map<String, dynamic>
+    print(row.typedAssoc());
   }
 
   // close all connections

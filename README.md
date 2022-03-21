@@ -15,6 +15,7 @@ Tested with MySQL Percona Server **5.7** and **8** versions
 * [x] SSL connection
 * [x] Auth using caching_sha2_password (default since MySQL 8)
 * [x] Iterating large result sets
+* [x] Typed data access
 * [ ] Send data in binary form when using prepared stmts (do not convert all into strings)
 * [ ] Multiple resul sets
 
@@ -63,6 +64,8 @@ var result = await pool.execute("SELECT * FROM book WHERE id = :id", {"id": 1});
     print(row.assoc());
   }
 ```
+
+Look at [example/main_simple_conn.dart](example/main_simple_conn.dart) for other ways of getting column data, including typed data access.
 
 ### Prepared statements
 
