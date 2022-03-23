@@ -25,7 +25,7 @@ extension MySQLUint8ListExtension on Uint8List {
     final tmp2 = Uint8List.sublistView(
       tmp,
       strLength.item2,
-      strLength.item1.toInt() + 1,
+      strLength.item2 + strLength.item1.toInt(),
     );
 
     return Tuple2(utf8.decode(tmp2), strLength.item2 + strLength.item1.toInt());
