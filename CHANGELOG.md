@@ -1,3 +1,7 @@
+## 0.0.13
+
+- Fix decoding long strings
+
 ## 0.0.12
 
 - Add info about typed access to readme and examples
