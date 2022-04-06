@@ -364,7 +364,7 @@ class MySQLConnection {
   Future<IResultSet> execute(String query,
       [Map<String, dynamic>? params, bool iterable = false]) async {
     if (!_connected) {
-      throw Exception("Can not execute query: connecion closed");
+      throw Exception("Can not execute query: connection closed");
     }
 
     // wait for ready state
@@ -619,7 +619,7 @@ class MySQLConnection {
   /// Pass [iterable] true if you want to iterable result set. See [execute] for details
   Future<PreparedStmt> prepare(String query, [bool iterable = false]) async {
     if (!_connected) {
-      throw Exception("Can not prepare stmt: connecion closed");
+      throw Exception("Can not prepare stmt: connection closed");
     }
 
     // wait for ready state
@@ -705,7 +705,7 @@ class MySQLConnection {
     bool iterable,
   ) async {
     if (!_connected) {
-      throw Exception("Can not execute prepared stmt: connecion closed");
+      throw Exception("Can not execute prepared stmt: connection closed");
     }
 
     // wait for ready state
@@ -869,7 +869,7 @@ class MySQLConnection {
 
   Future<void> _deallocatePreparedStmt(PreparedStmt stmt) async {
     if (!_connected) {
-      throw Exception("Can not execute query: connecion closed");
+      throw Exception("Can not execute query: connection closed");
     }
 
     // wait for ready state
