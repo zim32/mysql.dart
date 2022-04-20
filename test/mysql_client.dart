@@ -302,6 +302,17 @@ create table book
     },
   );
 
+  test("testing prepared stmt select", () async {
+    final stmt = await conn.prepare(
+      'SELECT * FROM book WHERE title = ?',
+    );
+
+    final result = await stmt.execute(['Some title 2']);
+
+    expect(result.numOfRows, 1);
+    expect(result.affectedRows.toInt(), 0);
+  });
+
   test(
     "testing empty result set",
     () async {

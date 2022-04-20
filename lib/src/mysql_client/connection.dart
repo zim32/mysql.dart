@@ -646,6 +646,7 @@ class MySQLConnection {
      * 2 - eof decoded
      */
     int state = 0;
+    int numOfEofPacketsParsed = 0;
     MySQLPacketStmtPrepareOK? preparedPacket;
 
     _responseCallback = (data) async {
@@ -657,19 +658,40 @@ class MySQLConnection {
           state = 1;
           break;
         default:
+          packet = null;
+
           if (MySQLPacket.detectPacketType(data) ==
               MySQLGenericPacketType.eof) {
-            state = 2;
+            numOfEofPacketsParsed++;
 
-            completer.complete(PreparedStmt._(
-              preparedPacket: preparedPacket!,
-              connection: this,
-              iterable: iterable,
-            ));
+            var done = false;
 
-            _state = _MySQLConnectionState.connectionEstablished;
+            assert(preparedPacket != null);
 
-            return;
+            if (preparedPacket!.numOfCols > 0 &&
+                preparedPacket!.numOfParams > 0) {
+              // there should be two EOF packets in this case
+              if (numOfEofPacketsParsed == 2) {
+                done = true;
+              }
+            } else {
+              // there should be only one EOF packet otherwise
+              done = true;
+            }
+
+            if (done) {
+              state = 2;
+
+              completer.complete(PreparedStmt._(
+                preparedPacket: preparedPacket!,
+                connection: this,
+                iterable: iterable,
+              ));
+
+              _state = _MySQLConnectionState.connectionEstablished;
+
+              return;
+            }
           }
 
           break;
