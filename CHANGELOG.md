@@ -1,3 +1,7 @@
+## 0.0.15
+
+- Fix capability flags parsing
+
 ## 0.0.14
 
 - Fix prepared statement select with params (handle two EOF packets if numOfCols and numOfParams are both > 0)
