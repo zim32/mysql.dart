@@ -2,7 +2,9 @@
 
 See [example](example/) directory for examples and usage
 
-Tested with MySQL Percona Server **5.7** and **8** versions
+Tested with:
+ * MySQL Percona Server 5.7 and 8 versions
+ * MariaDB 10 version
 
 ### Roadmap
 

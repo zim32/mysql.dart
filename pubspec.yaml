@@ -1,5 +1,5 @@
 name: mysql_client
-description: Native MySQL client written in Dart. Tested with MySQL Percona Server 5.7 and 8 versions. Supports TLS.
+description: Native MySQL client written in Dart. Tested with MySQL Percona Server (5.7, 8), MariaDB (10). Supports TLS.
 version: 0.0.15
 homepage: https://github.com/zim32/mysql.dart
 repository: https://github.com/zim32/mysql.dart
