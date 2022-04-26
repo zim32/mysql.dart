@@ -145,3 +145,19 @@ To run tests execute
 ```bash
 dart test
 ```
+
+### Troubleshooting
+
+There is separate **logging** branch of mysql_client. This branch will stay in sync with **main** branch of this repository, with one main difference - it has logging enabled.
+
+If you have issues, you can temporary switch to logging branch, run your app with **--enable-asserts** and check log messages.
+
+Here is how you can switch to logging branch in your pubspec.yaml file:
+
+```yaml
+mysql_client:
+    git: https://github.com/zim32/mysql.dart.git
+    ref: logging
+```
+
+Don't forget to switch back again, when you're done with debugging.
