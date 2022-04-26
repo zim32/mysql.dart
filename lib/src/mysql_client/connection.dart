@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:mysql_client/mysql_protocol.dart';
 import 'package:logger/logger.dart';
 
-final loggingLevel = Level.verbose;
+final loggingLevel = Level.debug;
 
 final logger = Logger(
   printer: PrettyPrinter(),
