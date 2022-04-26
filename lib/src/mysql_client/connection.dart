@@ -2,6 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:mysql_client/mysql_protocol.dart';
+import 'package:logger/logger.dart';
+
+final loggingLevel = Level.verbose;
+
+final logger = Logger(
+  printer: PrettyPrinter(),
+);
 
 enum _MySQLConnectionState {
   fresh,
@@ -71,7 +78,10 @@ class MySQLConnection {
     String? databaseName,
     String collation = 'utf8_general_ci',
   }) async {
+    Logger.level = loggingLevel;
+    logger.d("Establishing socket connection");
     final socket = await Socket.connect(host, port);
+    logger.d("Socket connection established");
     socket.setOption(SocketOption.tcpNoDelay, true);
 
     final client = MySQLConnection._(
@@ -149,6 +159,9 @@ class MySQLConnection {
   }
 
   Future<void> _processSocketData(Uint8List data) async {
+    logger.d("Processing socket data. Current state is $_state");
+    logger.v(data);
+
     if (_state == _MySQLConnectionState.waitInitialHandshake) {
       await _processInitialHandshake(data);
       return;
@@ -160,8 +173,12 @@ class MySQLConnection {
         final authSwitchPacket =
             MySQLPacket.decodeAuthSwitchRequestPacket(data);
 
+        logger.d("Processing AuthSwitchRequestPacket");
+
         final payload =
             authSwitchPacket.payload as MySQLPacketAuthSwitchRequest;
+
+        logger.d("Auth plugin name is: ${payload.authPluginName}");
 
         switch (payload.authPluginName) {
           case 'mysql_native_password':
@@ -191,6 +208,7 @@ class MySQLConnection {
       try {
         packet = MySQLPacket.decodeGenericPacket(data);
       } catch (e) {
+        logger.e("Skipping invalid packet: $data");
         // print("Skipping invalid packet: $data");
         return;
       }
@@ -201,6 +219,7 @@ class MySQLConnection {
       }
 
       if (packet.isOkPacket()) {
+        logger.i("Got OK packet. Connection established");
         _state = _MySQLConnectionState.connectionEstablished;
         _connected = true;
       }
@@ -256,17 +275,22 @@ class MySQLConnection {
   }
 
   Future<void> _processInitialHandshake(Uint8List data) async {
-    final packet = MySQLPacket.decodeInitialHandshake(data);
+    logger.d("Processing initial handshake");
 
+    final packet = MySQLPacket.decodeInitialHandshake(data);
     final payload = packet.payload;
 
     if (payload is! MySQLPacketInitialHandshake) {
       throw Exception("Expected MySQLPacketInitialHandshake packet");
     }
 
+    logger.d(payload);
+
     if (_secure) {
       // it secure = true, initiate ssl connection
       Future<void> initiateSSL() async {
+        logger.d("Initiating SSL connection");
+
         final responsePayload = MySQLPacketSSLRequest.createDefault(
           initialHandshakePayload: payload,
           connectWithDB: _databaseName != null,
@@ -287,6 +311,8 @@ class MySQLConnection {
           onBadCertificate: (certificate) => true,
         );
 
+        logger.d("SSL connection established");
+
         // switch socket
         _socket = secureSocket;
 
@@ -305,6 +331,8 @@ class MySQLConnection {
     }
 
     final authPluginName = payload.authPluginName;
+
+    logger.d("Auth plugin name is: $authPluginName");
 
     switch (authPluginName) {
       case 'mysql_native_password':
@@ -325,6 +353,9 @@ class MySQLConnection {
 
         _state = _MySQLConnectionState.initialHandshakeResponseSend;
         _socket.add(responsePacket.encode());
+
+        logger.d("Native password response send");
+
         break;
       case 'caching_sha2_password':
         final responsePayload =
@@ -344,6 +375,9 @@ class MySQLConnection {
 
         _state = _MySQLConnectionState.initialHandshakeResponseSend;
         _socket.add(responsePacket.encode());
+
+        logger.d("Caching sha2 password response send");
+
         break;
       default:
         throw Exception("Unsupported auth plugin name: $authPluginName");
@@ -351,6 +385,9 @@ class MySQLConnection {
   }
 
   void _processCommandResponse(Uint8List data) {
+    logger.d("Processing command response packet");
+    assert(_responseCallback != null);
+
     if (_responseCallback != null) {
       _responseCallback!(data);
     }
