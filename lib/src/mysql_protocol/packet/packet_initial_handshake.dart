@@ -65,7 +65,7 @@ class MySQLPacketInitialHandshake extends MySQLPacketPayload {
     capabilitiesBytesData.setUint8(0, buffer[offset + 1]);
     offset += 2;
 
-    final capabilityFlags = capabilitiesBytesData.getUint32(0, Endian.little);
+    final capabilityFlags = capabilitiesBytesData.getUint32(0, Endian.big);
 
     // length of auth-plugin-data
     int authPluginDataLength = 0;

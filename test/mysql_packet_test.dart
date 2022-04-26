@@ -553,7 +553,7 @@ void main() {
       expect(payload.authPluginName, "mysql_native_password");
 
       //actual network data 0xffffffc1
-      expect(payload.capabilityFlags, 0xffffffc1);
+      expect(payload.capabilityFlags, 0xc1ffffff);
 
       expect(
         payload.capabilityFlags & mysqlCapFlagClientMultiStatements,
