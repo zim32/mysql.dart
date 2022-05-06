@@ -538,6 +538,7 @@ class MySQLConnection {
     try {
       final result = await callback(this);
       await execute("COMMIT");
+      _inTransaction = false;
       return result;
     } catch (e) {
       await execute("ROLLBACK");
