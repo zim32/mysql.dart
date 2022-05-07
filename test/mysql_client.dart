@@ -251,6 +251,36 @@ create table book
     },
   );
 
+  test("testing double transaction", () async {
+    try {
+      await conn.transactional<void>((conn) async {
+        await conn.execute("SELECT * FROM book");
+      });
+      await conn.transactional<void>((conn) async {
+        await conn.execute("SELECT * FROM book");
+      });
+    } catch (e) {
+      fail("Exception is thrown");
+    }
+  });
+
+  test("testing error is thrown if prevent double transaction", () async {
+    try {
+      await Future.wait([
+        conn.transactional<void>((conn) async {
+          await conn.execute("SELECT * FROM book");
+        }),
+        conn.transactional<void>((conn) async {
+          await conn.execute("SELECT * FROM book");
+        }),
+      ]);
+      fail("Exception is not thrown");
+    } catch (e) {
+      expect(e, isA<Exception>());
+      expect(e.toString(), "Exception: Already in transaction");
+    }
+  });
+
   test(
     "testing missing param",
     () async {

@@ -1,3 +1,7 @@
+## 0.0.16
+
+- Fix in transaction flag
+
 ## 0.0.15
 
 - Fix capability flags parsing
