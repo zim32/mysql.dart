@@ -308,12 +308,15 @@ create table book
 
       var result =
           await stmt.execute(['Some title 1', 200, '2022-04-02 00:00:00']);
+
       expect(result.affectedRows.toInt(), 1);
       expect(result.lastInsertID.toInt(), 3);
 
       result = await stmt.execute(['Some title 2', 200, '2022-04-02 00:00:00']);
+
       expect(result.affectedRows.toInt(), 1);
       expect(result.lastInsertID.toInt(), 4);
+
       await stmt.deallocate();
 
       // check throws error
@@ -331,6 +334,17 @@ create table book
       expect(result.rows.first.colAt(0), '3');
     },
   );
+
+  test("testing string encoding in prepared statements", () async {
+    var stmt = await conn.prepare(
+      "INSERT INTO book (author_id, title, price, created_at) VALUES (?, ?, ?, ?)",
+    );
+
+    var result = await stmt.execute([null, '中文标题', 120, '2022-01-01']);
+    await stmt.deallocate();
+
+    expect(result.affectedRows.toInt(), 1);
+  });
 
   test("testing prepared stmt select", () async {
     final stmt = await conn.prepare(

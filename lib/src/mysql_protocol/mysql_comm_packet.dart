@@ -124,8 +124,9 @@ class MySQLPacketCommStmtExecute extends MySQLPacketPayload {
       for (final param in params) {
         if (param != null) {
           final String value = param.toString();
-          buffer.writeVariableEncInt(value.length);
-          buffer.write(utf8.encode(value));
+          final encodedData = utf8.encode(value);
+          buffer.writeVariableEncInt(encodedData.length);
+          buffer.write(encodedData);
         }
       }
     }

@@ -1,3 +1,7 @@
+## 0.0.17
+
+- Fix string encoding in prepared statements
+
 ## 0.0.16
 
 - Fix in transaction flag
