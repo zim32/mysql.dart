@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart' show ByteDataWriter;
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:mysql_client/mysql_protocol.dart';
+import 'package:mysql_client/exception.dart';
 import 'package:tuple/tuple.dart' show Tuple2;
 
 const mysqlCapFlagClientLongPassword = 0x1;
@@ -131,7 +132,7 @@ class MySQLPacket {
     final type = byteData.getUint8(offset);
 
     if (type != 0xfe) {
-      throw Exception(
+      throw MySQLProtocolException(
           "Can not decode AuthSwitchResponse packet: type is not 0xfe");
     }
 
@@ -167,7 +168,7 @@ class MySQLPacket {
     } else if (type == 0xff) {
       payload = MySQLPacketError.decode(Uint8List.sublistView(buffer, offset));
     } else {
-      throw Exception("Unsupported generic packet: $buffer");
+      throw MySQLProtocolException("Unsupported generic packet: $buffer");
     }
 
     return MySQLPacket(
@@ -196,7 +197,7 @@ class MySQLPacket {
     } else if (type == 0xff) {
       payload = MySQLPacketError.decode(Uint8List.sublistView(buffer, offset));
     } else if (type == 0xfb) {
-      throw UnimplementedError(
+      throw MySQLProtocolException(
         "COM_QUERY_RESPONSE of type 0xfb is not implemented",
       );
     } else {
@@ -297,7 +298,7 @@ class MySQLPacket {
     } else if (type == 0xff) {
       payload = MySQLPacketError.decode(Uint8List.sublistView(buffer, offset));
     } else {
-      throw Exception(
+      throw MySQLProtocolException(
         "Unexpected header type while decoding COM_STMT_PREPARE response: $header",
       );
     }

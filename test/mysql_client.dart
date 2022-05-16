@@ -1,12 +1,13 @@
 import 'dart:io';
+import 'package:mysql_client/exception.dart';
 import 'package:mysql_client/mysql_client.dart';
 import 'package:test/test.dart';
 
 void main() {
   final host = '127.0.0.1';
   final port = 3306;
-  final user = 'testuser';
-  final pass = 'test';
+  final user = 'your_user';
+  final pass = 'your_password';
   final db = 'testdb';
 
   late MySQLConnection conn;
@@ -276,8 +277,8 @@ create table book
       ]);
       fail("Exception is not thrown");
     } catch (e) {
-      expect(e, isA<Exception>());
-      expect(e.toString(), "Exception: Already in transaction");
+      expect(e, isA<MySQLClientException>());
+      expect(e.toString(), "MySQLClientException: Already in transaction");
     }
   });
 
@@ -292,7 +293,7 @@ create table book
 
         fail("Exception is not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLClientException>());
       }
     },
   );

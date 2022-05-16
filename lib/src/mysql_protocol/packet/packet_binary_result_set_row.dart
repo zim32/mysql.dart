@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:mysql_client/mysql_protocol.dart';
+import 'package:mysql_client/exception.dart';
 
 class MySQLBinaryResultSetRowPacket extends MySQLPacketPayload {
   List<String?> values;
@@ -20,7 +21,7 @@ class MySQLBinaryResultSetRowPacket extends MySQLPacketPayload {
     offset += 1;
 
     if (type != 0) {
-      throw Exception(
+      throw MySQLProtocolException(
         "Can not decode MySQLBinaryResultSetRowPacket: packet type is not 0x00",
       );
     }
