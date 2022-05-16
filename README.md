@@ -155,9 +155,10 @@ If you have issues, you can temporary switch to logging branch, run your app wit
 Here is how you can switch to logging branch in your pubspec.yaml file:
 
 ```yaml
-mysql_client:
-    git: https://github.com/zim32/mysql.dart.git
-    ref: logging
+ mysql_client: 
+    git: 
+      url: https://github.com/zim32/mysql.dart.git
+      ref: logging
 ```
 
 Don't forget to switch back again, when you're done with debugging.
