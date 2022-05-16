@@ -1,3 +1,7 @@
+## 0.0.18
+
+- Remove general Exception class. Add custom exception classes
+
 ## 0.0.17
 
 - Fix string encoding in prepared statements
