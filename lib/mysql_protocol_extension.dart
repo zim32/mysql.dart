@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
+import 'package:mysql_client/exception.dart';
 import 'package:tuple/tuple.dart';
 
 extension MySQLUint8ListExtension on Uint8List {
@@ -71,7 +72,8 @@ extension MySQLByteDataExtension on ByteData {
       return Tuple2(BigInt.parse(radix, radix: 16), 9);
     }
 
-    throw UnimplementedError();
+    throw MySQLProtocolException(
+        "Wrong first byte, while decoding getVariableEncInt");
   }
 
   int getInt2(int startOffset) {

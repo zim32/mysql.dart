@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:mysql_client/mysql_protocol.dart';
+import 'package:mysql_client/exception.dart';
 
 enum _MySQLConnectionState {
   fresh,
@@ -101,7 +102,7 @@ class MySQLConnection {
   /// Default [timeoutMs] is 5000 milliseconds
   Future<void> connect({int timeoutMs = 5000}) async {
     if (_state != _MySQLConnectionState.fresh) {
-      throw Exception("Can not connect: status is not fresh");
+      throw MySQLClientException("Can not connect: status is not fresh");
     }
 
     _state = _MySQLConnectionState.waitInitialHandshake;
@@ -179,7 +180,7 @@ class MySQLConnection {
             _socket.add(responsePacket.encode());
             return;
           default:
-            throw Exception(
+            throw MySQLClientException(
                 "Unsupported auth plugin name: ${payload.authPluginName}");
         }
       } catch (e) {
@@ -197,7 +198,7 @@ class MySQLConnection {
 
       if (packet.isErrorPacket()) {
         final errorPayload = packet.payload as MySQLPacketError;
-        throw Exception("MySQL error: ${errorPayload.errorMessage}");
+        throw MySQLServerException(errorPayload.errorMessage);
       }
 
       if (packet.isOkPacket()) {
@@ -213,7 +214,7 @@ class MySQLConnection {
       return;
     }
 
-    throw Exception(
+    throw MySQLClientException(
       "Skipping socket data, because of connection bad state\nState: ${_state.name}\nData: $data",
     );
   }
@@ -261,7 +262,7 @@ class MySQLConnection {
     final payload = packet.payload;
 
     if (payload is! MySQLPacketInitialHandshake) {
-      throw Exception("Expected MySQLPacketInitialHandshake packet");
+      throw MySQLClientException("Expected MySQLPacketInitialHandshake packet");
     }
 
     if (_secure) {
@@ -346,7 +347,8 @@ class MySQLConnection {
         _socket.add(responsePacket.encode());
         break;
       default:
-        throw Exception("Unsupported auth plugin name: $authPluginName");
+        throw MySQLClientException(
+            "Unsupported auth plugin name: $authPluginName");
     }
   }
 
@@ -364,7 +366,7 @@ class MySQLConnection {
   Future<IResultSet> execute(String query,
       [Map<String, dynamic>? params, bool iterable = false]) async {
     if (!_connected) {
-      throw Exception("Can not execute query: connection closed");
+      throw MySQLClientException("Can not execute query: connection closed");
     }
 
     // wait for ready state
@@ -491,7 +493,7 @@ class MySQLConnection {
 
         if (payload is MySQLPacketError) {
           completer.completeError(
-            Exception("MySQL error: " + payload.errorMessage),
+            MySQLClientException("MySQL error: " + payload.errorMessage),
           );
           _state = _MySQLConnectionState.connectionEstablished;
           return;
@@ -510,7 +512,7 @@ class MySQLConnection {
           assert(iterable == false);
           resultSetRows.add(payload);
         } else {
-          throw Exception(
+          throw MySQLClientException(
             "Unexpected payload received in response to COMM_QUERY request",
           );
         }
@@ -524,12 +526,12 @@ class MySQLConnection {
 
   /// Execute [callback] inside database transaction
   ///
-  /// If exception is thrown inside [callback] function, transaction is rolled back
+  /// If MySQLClientException is thrown inside [callback] function, transaction is rolled back
   Future<T> transactional<T>(
       FutureOr<T> Function(MySQLConnection conn) callback) async {
     // prevent double transaction
     if (_inTransaction) {
-      throw Exception("Already in transaction");
+      throw MySQLClientException("Already in transaction");
     }
     _inTransaction = true;
 
@@ -595,7 +597,8 @@ class MySQLConnection {
 
       // check param exists
       if (false == convertedParams.containsKey(paramName)) {
-        throw Exception("There is no parameter with name: $paramName");
+        throw MySQLClientException(
+            "There is no parameter with name: $paramName");
       }
 
       final newQuery = query.replaceFirst(
@@ -620,7 +623,7 @@ class MySQLConnection {
   /// Pass [iterable] true if you want to iterable result set. See [execute] for details
   Future<PreparedStmt> prepare(String query, [bool iterable = false]) async {
     if (!_connected) {
-      throw Exception("Can not prepare stmt: connection closed");
+      throw MySQLClientException("Can not prepare stmt: connection closed");
     }
 
     // wait for ready state
@@ -705,12 +708,12 @@ class MySQLConnection {
           preparedPacket = payload;
         } else if (payload is MySQLPacketError) {
           completer.completeError(
-            Exception("MySQL error: ${payload.errorMessage}"),
+            MySQLClientException("MySQL error: ${payload.errorMessage}"),
           );
           _state = _MySQLConnectionState.connectionEstablished;
           return;
         } else {
-          throw Exception(
+          throw MySQLClientException(
             "Unexpected payload received in response to COMM_STMT_PREPARE request",
           );
         }
@@ -728,7 +731,8 @@ class MySQLConnection {
     bool iterable,
   ) async {
     if (!_connected) {
-      throw Exception("Can not execute prepared stmt: connection closed");
+      throw MySQLClientException(
+          "Can not execute prepared stmt: connection closed");
     }
 
     // wait for ready state
@@ -796,9 +800,9 @@ class MySQLConnection {
             state = 3;
           } else if (packet.isErrorPacket()) {
             final errMsg = (packet.payload as MySQLPacketError).errorMessage;
-            throw Exception("MySQL exception: $errMsg");
+            throw MySQLServerException(errMsg);
           } else {
-            throw Exception("Unexcpected packet type");
+            throw MySQLClientException("Unexcpected packet type");
           }
           break;
         case 3:
@@ -860,7 +864,7 @@ class MySQLConnection {
 
         if (payload is MySQLPacketError) {
           completer.completeError(
-            Exception("MySQL error: " + payload.errorMessage),
+            MySQLClientException("MySQL error: " + payload.errorMessage),
           );
           _state = _MySQLConnectionState.connectionEstablished;
           return;
@@ -878,7 +882,7 @@ class MySQLConnection {
         } else if (payload is MySQLBinaryResultSetRowPacket) {
           resultSetRows.add(payload);
         } else {
-          throw Exception(
+          throw MySQLClientException(
             "Unexpected payload received in response to COMM_QUERY request",
           );
         }
@@ -892,7 +896,7 @@ class MySQLConnection {
 
   Future<void> _deallocatePreparedStmt(PreparedStmt stmt) async {
     if (!_connected) {
-      throw Exception("Can not execute query: connection closed");
+      throw MySQLClientException("Can not execute query: connection closed");
     }
 
     // wait for ready state
@@ -1057,7 +1061,7 @@ class IterableResultSet implements IResultSet {
   int get numOfColumns => _columns.length;
 
   @override
-  int get numOfRows => throw UnimplementedError(
+  int get numOfRows => throw MySQLClientException(
         "numOfRows is not implemented for IterableResultSet",
       );
 
@@ -1079,7 +1083,7 @@ class IterableResultSet implements IResultSet {
   }
 
   @override
-  Iterable<ResultSetRow> get rows => throw UnimplementedError(
+  Iterable<ResultSetRow> get rows => throw MySQLClientException(
         "Use rowsStream to get rows from IterableResultSet",
       );
 }
@@ -1143,7 +1147,7 @@ class IterablePreparedStmtResultSet extends IResultSet {
   int get numOfColumns => _columns.length;
 
   @override
-  int get numOfRows => throw UnimplementedError(
+  int get numOfRows => throw MySQLClientException(
         "numOfRows is not implemented for IterableResultSet",
       );
 
@@ -1154,7 +1158,7 @@ class IterablePreparedStmtResultSet extends IResultSet {
   BigInt get lastInsertID => BigInt.zero;
 
   @override
-  Iterable<ResultSetRow> get rows => throw UnimplementedError(
+  Iterable<ResultSetRow> get rows => throw MySQLClientException(
         "Use rowsStream to get rows from IterablePreparedStmtResultSet",
       );
 
@@ -1215,7 +1219,7 @@ class ResultSetRow {
   /// Get column data by column index (starting form 0)
   String? colAt(int colIndex) {
     if (colIndex >= _values.length) {
-      throw Exception("Column index is out of range");
+      throw MySQLClientException("Column index is out of range");
     }
 
     final value = _values[colIndex];
@@ -1228,7 +1232,7 @@ class ResultSetRow {
   /// Conversion is "typesafe", meaning that actual MySQL column type will be checked,
   /// to decide is it possible to make such a conversion
   ///
-  /// Throws [Exception] if conversion is not possible
+  /// Throws [MySQLClientException] if conversion is not possible
   T? typedColAt<T>(int colIndex) {
     final value = colAt(colIndex);
     final colDef = _colDefs[colIndex];
@@ -1243,11 +1247,11 @@ class ResultSetRow {
         _colDefs.indexWhere((element) => element.name == columnName);
 
     if (colIndex == -1) {
-      throw Exception("There is no column with name: $columnName");
+      throw MySQLClientException("There is no column with name: $columnName");
     }
 
     if (colIndex >= _values.length) {
-      throw Exception("Column index is out of range");
+      throw MySQLClientException("Column index is out of range");
     }
 
     final value = _values[colIndex];
@@ -1260,7 +1264,7 @@ class ResultSetRow {
   /// Conversion is "typesafe", meaning that actual MySQL column type will be checked,
   /// to decide is it possible to make such a conversion
   ///
-  /// Throws [Exception] if conversion is not possible
+  /// Throws [MySQLClientException] if conversion is not possible
   T? typedColByName<T>(String columnName) {
     final value = colByName(columnName);
 
@@ -1368,7 +1372,7 @@ class PreparedStmt {
   /// Executes this prepared statement with given [params]
   Future<IResultSet> execute(List<dynamic> params) async {
     if (numOfParams != params.length) {
-      throw Exception(
+      throw MySQLClientException(
         "Can not execute prepared stmt: number of passed params != number of prepared params",
       );
     }

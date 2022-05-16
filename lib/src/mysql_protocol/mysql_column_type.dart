@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:tuple/tuple.dart';
+import 'package:mysql_client/exception.dart';
 import 'package:mysql_client/mysql_protocol_extension.dart';
 
 const mysqlColumnTypeDecimal = 0x00;
@@ -84,7 +85,7 @@ class MySQLColumnType {
       if (_value == mysqlColumnTypeTiny && columnLength == 1) {
         return int.parse(value) > 0 as T;
       } else {
-        throw Exception(
+        throw MySQLProtocolException(
           "Can not convert MySQL type $_value to requested type bool",
         );
       }
@@ -102,7 +103,7 @@ class MySQLColumnType {
         case mysqlColumnTypeYear:
           return int.parse(value) as T;
         default:
-          throw Exception(
+          throw MySQLProtocolException(
             "Can not convert MySQL type $_value to requested type int",
           );
       }
@@ -119,7 +120,7 @@ class MySQLColumnType {
         case mysqlColumnTypeDouble:
           return double.parse(value) as T;
         default:
-          throw Exception(
+          throw MySQLProtocolException(
             "Can not convert MySQL type $_value to requested type double",
           );
       }
@@ -136,13 +137,13 @@ class MySQLColumnType {
         case mysqlColumnTypeDouble:
           return num.parse(value) as T;
         default:
-          throw Exception(
+          throw MySQLProtocolException(
             "Can not convert MySQL type $_value to requested type num",
           );
       }
     }
 
-    throw Exception(
+    throw MySQLProtocolException(
       "Can not convert MySQL type ${T.runtimeType} to requested type int",
     );
   }
@@ -335,7 +336,7 @@ Tuple2<String, int> parseBinaryColumnData(
       return buffer.getLengthEncodedString(startOffset);
   }
 
-  throw UnimplementedError(
+  throw MySQLProtocolException(
     "Can not parse binary column data: column type $columnType is not implemented",
   );
 }
