@@ -216,7 +216,8 @@ class MySQLConnection {
 
       if (packet.isErrorPacket()) {
         final errorPayload = packet.payload as MySQLPacketError;
-        throw MySQLServerException(errorPayload.errorMessage);
+        throw MySQLServerException(
+            errorPayload.errorMessage, errorPayload.errorCode);
       }
 
       if (packet.isOkPacket()) {
@@ -836,8 +837,9 @@ class MySQLConnection {
           if (packet.isEOFPacket()) {
             state = 3;
           } else if (packet.isErrorPacket()) {
-            final errMsg = (packet.payload as MySQLPacketError).errorMessage;
-            throw MySQLServerException(errMsg);
+            final errorPayload = packet.payload as MySQLPacketError;
+            throw MySQLServerException(
+                errorPayload.errorMessage, errorPayload.errorCode);
           } else {
             throw MySQLClientException("Unexcpected packet type");
           }

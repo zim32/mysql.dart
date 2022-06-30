@@ -1,3 +1,11 @@
+## 0.0.19
+
+- Expose mysql server error code in MySQLServerException
+
+## 0.0.18
+
+- Remove general Exception class. Add custom exception classes
+
 ## 0.0.17
 
 - Fix string encoding in prepared statements
