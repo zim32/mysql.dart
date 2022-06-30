@@ -24,7 +24,7 @@ class MySQLResultSetRowPacket extends MySQLPacketPayload {
         values.add(null);
         offset += 1;
       } else {
-        value = buffer.getLengthEncodedString(offset);
+        value = buffer.getUtf8LengthEncodedString(offset);
         values.add(value.item1);
         offset += value.item2;
       }

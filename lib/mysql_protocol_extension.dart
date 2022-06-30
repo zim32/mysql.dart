@@ -5,19 +5,19 @@ import 'package:mysql_client/exception.dart';
 import 'package:tuple/tuple.dart';
 
 extension MySQLUint8ListExtension on Uint8List {
-  String getNullTerminatedString(int startOffset) {
+  String getAsciNullTerminatedString(int startOffset) {
     final tmp = Uint8List.sublistView(this, startOffset)
         .takeWhile((value) => value != 0);
 
-    return utf8.decode(tmp.toList());
+    return ascii.decode(tmp.toList());
   }
 
-  String getStringEOF(int startOffset) {
+  String getAsciStringEOF(int startOffset) {
     final tmp = Uint8List.sublistView(this, startOffset);
-    return utf8.decode(tmp);
+    return ascii.decode(tmp);
   }
 
-  Tuple2<String, int> getLengthEncodedString(int startOffset) {
+  Tuple2<String, int> getUtf8LengthEncodedString(int startOffset) {
     final tmp = Uint8List.sublistView(this, startOffset);
     final bd = ByteData.sublistView(tmp);
 
