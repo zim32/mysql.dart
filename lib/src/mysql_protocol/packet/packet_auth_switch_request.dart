@@ -21,7 +21,7 @@ class MySQLPacketAuthSwitchRequest extends MySQLPacketPayload {
     final header = byteData.getUint8(offset);
     offset += 1;
 
-    final authPluginName = buffer.getNullTerminatedString(offset);
+    final authPluginName = buffer.getAsciNullTerminatedString(offset);
     offset += authPluginName.length + 1;
 
     final authPluginData = Uint8List.sublistView(buffer, offset);

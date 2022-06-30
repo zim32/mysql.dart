@@ -154,40 +154,40 @@ void main() {
   group("testing string parsing", () {
     test("testing getNullTerminatedString 1", () {
       final buffer = Uint8List.fromList([0x61, 0x62, 0x00]);
-      final actual = buffer.getNullTerminatedString(0);
+      final actual = buffer.getAsciNullTerminatedString(0);
       expect(actual, "ab");
     });
     test("testing getNullTerminatedString 2", () {
       final buffer = Uint8List.fromList([0x10, 0x61, 0x62, 0x00, 0x12, 0xff]);
-      final actual = buffer.getNullTerminatedString(1);
+      final actual = buffer.getAsciNullTerminatedString(1);
       expect(actual, "ab");
     });
     test("testing getStringEOF 1", () {
       final buffer = Uint8List.fromList([0x61, 0x62]);
-      final actual = buffer.getNullTerminatedString(0);
+      final actual = buffer.getAsciNullTerminatedString(0);
       expect(actual, "ab");
     });
     test("testing getStringEOF 2", () {
       final buffer = Uint8List.fromList([0xff, 0xff, 0x61, 0x62]);
-      final actual = buffer.getNullTerminatedString(2);
+      final actual = buffer.getAsciNullTerminatedString(2);
       expect(actual, "ab");
     });
     test("testing getLengthEncodedString 1", () {
       final buffer = Uint8List.fromList([0x03, 0x64, 0x65, 0x66]);
-      final actual = buffer.getLengthEncodedString(0);
+      final actual = buffer.getUtf8LengthEncodedString(0);
       expect(actual.item1, "def");
       expect(actual.item2, 4);
     });
     test("testing getLengthEncodedString 2", () {
       final buffer = Uint8List.fromList([0x03, 0x64, 0x65, 0x66, 0xff, 0xcc]);
-      final actual = buffer.getLengthEncodedString(0);
+      final actual = buffer.getUtf8LengthEncodedString(0);
       expect(actual.item1, "def");
       expect(actual.item2, 4);
     });
     test("testing getLengthEncodedString 3", () {
       final buffer =
           Uint8List.fromList([0xff, 0xde, 0x03, 0x64, 0x65, 0x66, 0xff, 0xcc]);
-      final actual = buffer.getLengthEncodedString(2);
+      final actual = buffer.getUtf8LengthEncodedString(2);
       expect(actual.item1, "def");
       expect(actual.item2, 4);
     });
@@ -517,7 +517,7 @@ void main() {
         0x65,
         0x65
       ]);
-      final actual = buffer.getLengthEncodedString(0);
+      final actual = buffer.getUtf8LengthEncodedString(0);
       expect(actual.item1,
           "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
       expect(actual.item2, 323);

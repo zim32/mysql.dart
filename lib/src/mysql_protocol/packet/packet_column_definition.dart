@@ -29,22 +29,22 @@ class MySQLColumnDefinitionPacket extends MySQLPacketPayload {
     final byteData = ByteData.sublistView(buffer);
     int offset = 0;
 
-    final catalog = buffer.getLengthEncodedString(offset);
+    final catalog = buffer.getUtf8LengthEncodedString(offset);
     offset += catalog.item2;
 
-    final schema = buffer.getLengthEncodedString(offset);
+    final schema = buffer.getUtf8LengthEncodedString(offset);
     offset += schema.item2;
 
-    final table = buffer.getLengthEncodedString(offset);
+    final table = buffer.getUtf8LengthEncodedString(offset);
     offset += table.item2;
 
-    final orgTable = buffer.getLengthEncodedString(offset);
+    final orgTable = buffer.getUtf8LengthEncodedString(offset);
     offset += orgTable.item2;
 
-    final name = buffer.getLengthEncodedString(offset);
+    final name = buffer.getUtf8LengthEncodedString(offset);
     offset += name.item2;
 
-    final orgName = buffer.getLengthEncodedString(offset);
+    final orgName = buffer.getUtf8LengthEncodedString(offset);
     offset += orgName.item2;
 
     final lengthOfFixedLengthFields = byteData.getVariableEncInt(offset);

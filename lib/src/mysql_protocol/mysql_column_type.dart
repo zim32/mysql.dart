@@ -333,7 +333,7 @@ Tuple2<String, int> parseBinaryColumnData(
     case mysqlColumnTypeBit:
     case mysqlColumnTypeDecimal:
     case mysqlColumnTypeNewDecimal:
-      return buffer.getLengthEncodedString(startOffset);
+      return buffer.getUtf8LengthEncodedString(startOffset);
   }
 
   throw MySQLProtocolException(
