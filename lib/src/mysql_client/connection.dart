@@ -11,6 +11,7 @@ enum _MySQLConnectionState {
   connectionEstablished,
   waitingCommandResponse,
   quitCommandSend,
+  closed
 }
 
 /// Main class to interact with MySQL database
@@ -30,6 +31,7 @@ class MySQLConnection {
   bool _inTransaction = false;
   final bool _secure;
   final List<int> _incompleteBufferData = [];
+  Object? _lastError;
 
   MySQLConnection._({
     required Socket socket,
@@ -107,14 +109,10 @@ class MySQLConnection {
 
     _state = _MySQLConnectionState.waitInitialHandshake;
 
-    _socketSubscription = _socket.listen((data) async {
+    _socketSubscription = _socket.listen((data) {
       for (final chunk in _splitPackets(data)) {
-        try {
-          await _processSocketData(chunk);
-        } catch (e) {
-          await _closeSocketAndCallHandlers();
-          rethrow;
-        }
+        _processSocketData(chunk)
+            .onError((error, stackTrace) => _lastError = error);
       }
     });
 
@@ -124,10 +122,17 @@ class MySQLConnection {
 
     // wait for connection established
     await Future.doWhile(() async {
+      if (_lastError != null) {
+        _forceClose();
+        throw _lastError!;
+      }
+
       if (_state == _MySQLConnectionState.connectionEstablished) {
         return false;
       }
+
       await Future.delayed(Duration(milliseconds: 100));
+
       return true;
     }).timeout(Duration(
       milliseconds: timeoutMs,
@@ -150,6 +155,11 @@ class MySQLConnection {
   }
 
   Future<void> _processSocketData(Uint8List data) async {
+    if (_state == _MySQLConnectionState.closed) {
+      // don't process any data if state is closed
+      return;
+    }
+
     if (_state == _MySQLConnectionState.waitInitialHandshake) {
       await _processInitialHandshake(data);
       return;
@@ -192,8 +202,7 @@ class MySQLConnection {
       try {
         packet = MySQLPacket.decodeGenericPacket(data);
       } catch (e) {
-        // print("Skipping invalid packet: $data");
-        return;
+        rethrow;
       }
 
       if (packet.isErrorPacket()) {
@@ -258,8 +267,14 @@ class MySQLConnection {
   }
 
   Future<void> _processInitialHandshake(Uint8List data) async {
-    final packet = MySQLPacket.decodeInitialHandshake(data);
+    // First packet can be error packet
+    if (MySQLPacket.detectPacketType(data) == MySQLGenericPacketType.error) {
+      final packet = MySQLPacket.decodeGenericPacket(data);
+      final payload = packet.payload as MySQLPacketError;
+      throw MySQLServerException(payload.errorMessage, payload.errorCode);
+    }
 
+    final packet = MySQLPacket.decodeInitialHandshake(data);
     final payload = packet.payload;
 
     if (payload is! MySQLPacketInitialHandshake) {
@@ -292,9 +307,10 @@ class MySQLConnection {
         // switch socket
         _socket = secureSocket;
 
-        _socketSubscription = secureSocket.listen((data) {
+        _socketSubscription = _socket.listen((data) {
           for (final chunk in _splitPackets(data)) {
-            _processSocketData(chunk);
+            _processSocketData(chunk)
+                .onError((error, stackTrace) => _lastError = error);
           }
         });
 
@@ -354,9 +370,8 @@ class MySQLConnection {
   }
 
   void _processCommandResponse(Uint8List data) {
-    if (_responseCallback != null) {
-      _responseCallback!(data);
-    }
+    assert(_responseCallback != null);
+    _responseCallback!(data);
   }
 
   /// Executes given [query]
@@ -364,8 +379,11 @@ class MySQLConnection {
   /// [execute] can be used to make any query type (SELECT, INSERT, UPDATE)
   /// You can pass named parameters using [params]
   /// Pass [iterable] true if you want to receive rows one by one in Stream fashion
-  Future<IResultSet> execute(String query,
-      [Map<String, dynamic>? params, bool iterable = false]) async {
+  Future<IResultSet> execute(
+    String query, [
+    Map<String, dynamic>? params,
+    bool iterable = false,
+  ]) async {
     if (!_connected) {
       throw MySQLClientException("Can not execute query: connection closed");
     }
@@ -422,7 +440,6 @@ class MySQLConnection {
           if (MySQLPacket.detectPacketType(data) == MySQLGenericPacketType.ok) {
             final okPacket = MySQLPacket.decodeGenericPacket(data);
             _state = _MySQLConnectionState.connectionEstablished;
-
             completer.complete(
               EmptyResultSet(okPacket: okPacket.payload as MySQLPacketOK),
             );
@@ -494,7 +511,7 @@ class MySQLConnection {
 
         if (payload is MySQLPacketError) {
           completer.completeError(
-            MySQLClientException("MySQL error: " + payload.errorMessage),
+            MySQLServerException(payload.errorMessage, payload.errorCode),
           );
           _state = _MySQLConnectionState.connectionEstablished;
           return;
@@ -513,9 +530,13 @@ class MySQLConnection {
           assert(iterable == false);
           resultSetRows.add(payload);
         } else {
-          throw MySQLClientException(
-            "Unexpected payload received in response to COMM_QUERY request",
+          completer.completeError(
+            MySQLClientException(
+              "Unexpected payload received in response to COMM_QUERY request",
+            ),
+            StackTrace.current,
           );
+          _forceClose();
         }
       }
     };
@@ -709,14 +730,19 @@ class MySQLConnection {
           preparedPacket = payload;
         } else if (payload is MySQLPacketError) {
           completer.completeError(
-            MySQLClientException("MySQL error: ${payload.errorMessage}"),
+            MySQLServerException(payload.errorMessage, payload.errorCode),
           );
           _state = _MySQLConnectionState.connectionEstablished;
           return;
         } else {
-          throw MySQLClientException(
-            "Unexpected payload received in response to COMM_STMT_PREPARE request",
+          completer.completeError(
+            MySQLClientException(
+              "Unexpected payload received in response to COMM_STMT_PREPARE request",
+            ),
+            StackTrace.current,
           );
+          _forceClose();
+          return;
         }
       }
     };
@@ -801,10 +827,19 @@ class MySQLConnection {
             state = 3;
           } else if (packet.isErrorPacket()) {
             final errorPayload = packet.payload as MySQLPacketError;
-            throw MySQLServerException(
-                errorPayload.errorMessage, errorPayload.errorCode);
+            completer.completeError(
+              MySQLServerException(
+                  errorPayload.errorMessage, errorPayload.errorCode),
+            );
+            _state = _MySQLConnectionState.connectionEstablished;
+            return;
           } else {
-            throw MySQLClientException("Unexcpected packet type");
+            completer.completeError(
+              MySQLClientException("Unexcpected packet type"),
+              StackTrace.current,
+            );
+            _forceClose();
+            return;
           }
           break;
         case 3:
@@ -866,7 +901,7 @@ class MySQLConnection {
 
         if (payload is MySQLPacketError) {
           completer.completeError(
-            MySQLClientException("MySQL error: " + payload.errorMessage),
+            MySQLServerException(payload.errorMessage, payload.errorCode),
           );
           _state = _MySQLConnectionState.connectionEstablished;
           return;
@@ -926,7 +961,7 @@ class MySQLConnection {
     return value;
   }
 
-  /// Close this connection
+  /// Close this connection gracefully
   ///
   /// This is an error to use this connection after connection has been closed
   Future<void> close() async {
@@ -947,7 +982,6 @@ class MySQLConnection {
       await _socketSubscription!.cancel();
     }
 
-    _connected = false;
     await _socket.flush();
     await Future.delayed(Duration(milliseconds: 10));
     await _socket.close();
@@ -955,10 +989,40 @@ class MySQLConnection {
 
     _incompleteBufferData.clear();
 
+    _connected = false;
+    _state = _MySQLConnectionState.closed;
+
     for (var element in _onCloseCallbacks) {
       element();
     }
+
     _onCloseCallbacks.clear();
+    _responseCallback = null;
+    _inTransaction = false;
+    _incompleteBufferData.clear();
+    _lastError = null;
+  }
+
+  void _forceClose() {
+    if (_socketSubscription != null) {
+      _socketSubscription!.cancel();
+    }
+
+    _socket.destroy();
+    _incompleteBufferData.clear();
+
+    _connected = false;
+    _state = _MySQLConnectionState.closed;
+
+    for (var element in _onCloseCallbacks) {
+      element();
+    }
+
+    _onCloseCallbacks.clear();
+    _responseCallback = null;
+    _inTransaction = false;
+    _incompleteBufferData.clear();
+    _lastError = null;
   }
 
   Future<void> _waitForState(_MySQLConnectionState state) async {
