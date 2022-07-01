@@ -146,6 +146,18 @@ To run tests execute
 dart test
 ```
 
+### Error handling
+
+This library throws tree types of exceptions: MySQLServerException, MySQLClientException and MySQLProtocolException.
+See api reference for description of each type.
+
+When exception is thrown, connection can be left in **connected** or **closed** state.
+
+As a general rule, if cause of exception is MySQL server error packet, connection will be left in connected state and can be reused. If cause of exception is logical error, such as unexpected packet or something inside parsing of mysql protocol, connection will be closed and can not be used anymore.
+
+It's up to developer to check connection state after catching exception.
+Inside your catch block, you can check connection status using **conn.connected** getter and decide what to do next.
+
 ### Troubleshooting
 
 There is separate **logging** branch of mysql_client. This branch will stay in sync with **main** branch of this repository, with one main difference - it has logging enabled.
