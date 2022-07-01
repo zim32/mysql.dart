@@ -3,6 +3,7 @@
 - Refactor error handling
 - Add section about error handling to README.md
 - Fix connection pool bugs
+- Fix mysql protocol string parsing (ascii instead of utf8)
 
 ## 0.0.19
 
