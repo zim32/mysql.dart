@@ -1,3 +1,9 @@
+## 0.0.20
+
+- Refactor error handling
+- Add section about error handling to README.md
+- Fix connection pool bugs
+
 ## 0.0.19
 
 - Expose mysql server error code in MySQLServerException
