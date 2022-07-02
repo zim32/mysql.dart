@@ -1155,6 +1155,8 @@ abstract class IResultSet
         return false;
       }
     }
+
+    bool get hasData => numOfRows != 0;
   }
 
   /// Provides access to data rows (unavailable for iterable results)
@@ -1207,6 +1209,9 @@ class ResultSet extends IResultSet {
       ),
     );
   }
+
+  @override
+  bool get hasData => numOfRows != 0;
 }
 
 /// Represents result of [MySQLConnection.execute] method when passing iterable = true
@@ -1272,6 +1277,9 @@ class IterableResultSet with IterableMixin<IResultSet> implements IResultSet {
   Iterable<ResultSetRow> get rows => throw MySQLClientException(
         "Use rowsStream to get rows from IterableResultSet",
       );
+
+  @override
+  bool get hasData => numOfRows != 0;
 }
 
 /// Represents result of [PreparedStmt.execute] method
@@ -1314,6 +1322,9 @@ class PreparedStmtResultSet extends IResultSet {
       ),
     );
   }
+
+  @override
+  bool get hasData => numOfRows != 0;
 }
 
 /// Represents result of [PreparedStmt.execute] method when using iterable = true
@@ -1361,6 +1372,9 @@ class IterablePreparedStmtResultSet extends IResultSet {
       ),
     );
   }
+
+  @override
+  bool get hasData => numOfRows != 0;
 }
 
 /// Represents empty result set
@@ -1386,6 +1400,9 @@ class EmptyResultSet extends IResultSet {
 
   @override
   Iterable<ResultSetColumn> get cols => List<ResultSetColumn>.empty();
+
+  @override
+  bool get hasData => false;
 }
 
 /// Represents result set row data
