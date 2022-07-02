@@ -8,7 +8,8 @@ const _supportedCapabitilies = mysqlCapFlagClientProtocol41 |
     mysqlCapFlagClientSecureConnection |
     mysqlCapFlagClientPluginAuth |
     mysqlCapFlagClientPluginAuthLenEncClientData |
-    mysqlCapFlagClientMultiStatements;
+    mysqlCapFlagClientMultiStatements |
+    mysqlCapFlagClientMultiResults;
 
 class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
   int capabilityFlags;
