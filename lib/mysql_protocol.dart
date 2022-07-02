@@ -8,6 +8,7 @@ export 'src/mysql_protocol/packet/packet_error.dart';
 export 'src/mysql_protocol/packet/packet_handshake_response_41.dart';
 export 'src/mysql_protocol/packet/packet_initial_handshake.dart';
 export 'src/mysql_protocol/packet/packet_ok.dart';
+export 'src/mysql_protocol/packet/packet_eof.dart';
 export 'src/mysql_protocol/packet/packet_ssl_request.dart';
 export 'src/mysql_protocol/packet/packet_stmt_prepare_ok.dart';
 export 'src/mysql_protocol/packet/packet_column_definition.dart';

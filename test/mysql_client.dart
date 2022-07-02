@@ -58,7 +58,35 @@ create table book
 
   tearDownAll(
     () async {
+      int counter = 0;
+
+      conn.onClose(() => counter++);
+      conn.onClose(() => counter++);
+
       await conn.close();
+      expect(conn.connected, false);
+      expect(counter, 2);
+    },
+  );
+
+  test(
+    "testing bad connection",
+    () async {
+      try {
+        final localConn = await MySQLConnection.createConnection(
+          host: host,
+          port: port,
+          userName: 'fake',
+          password: 'fake',
+          secure: false,
+        );
+
+        await localConn.connect();
+
+        fail("Not thrown");
+      } catch (e) {
+        expect(e, isA<MySQLServerException>());
+      }
     },
   );
 
@@ -150,7 +178,7 @@ create table book
 
         fail("Exception is not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLServerException>());
       }
     },
   );
@@ -171,7 +199,7 @@ create table book
         );
         fail("Exception is not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLServerException>());
       }
     },
   );
@@ -185,7 +213,7 @@ create table book
         );
         fail("Exception is not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLServerException>());
       }
     },
   );
@@ -341,7 +369,7 @@ create table book
         );
         fail("Not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLServerException>());
       }
 
       // check rows
@@ -387,6 +415,24 @@ create table book
       final result = await stmt.execute([]);
       expect(result.numOfRows, 0);
       await stmt.deallocate();
+    },
+  );
+
+  test(
+    "testing multiple statements",
+    () async {
+      final resultSets = await conn.execute(
+        "SELECT 1 as val_1_1; SELECT 2 as val_2_1, 3 as val_2_2",
+      );
+
+      expect(resultSets.next, isNotNull);
+
+      final resultSetsList = resultSets.toList();
+      expect(resultSetsList.length, 2);
+
+      expect(resultSetsList[0].rows.first.colByName("val_1_1"), "1");
+      expect(resultSetsList[1].rows.first.colByName("val_2_1"), "2");
+      expect(resultSetsList[1].rows.first.colByName("val_2_2"), "3");
     },
   );
 

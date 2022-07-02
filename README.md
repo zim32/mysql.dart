@@ -19,7 +19,7 @@ Tested with:
 * [x] Iterating large result sets
 * [x] Typed data access
 * [ ] Send data in binary form when using prepared stmts (do not convert all into strings)
-* [ ] Multiple resul sets
+* [x] Multiple resul sets
 
 ### Usage
 

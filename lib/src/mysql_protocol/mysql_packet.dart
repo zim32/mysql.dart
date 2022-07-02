@@ -5,28 +5,30 @@ import 'package:mysql_client/mysql_protocol.dart';
 import 'package:mysql_client/exception.dart';
 import 'package:tuple/tuple.dart' show Tuple2;
 
-const mysqlCapFlagClientLongPassword = 0x1;
-const mysqlCapFlagClientFoundRows = 0x2;
-const mysqlCapFlagClientLongFlag = 0x4;
-const mysqlCapFlagClientConnectWithDB = 0x8;
-const mysqlCapFlagClientNoSchema = 0x10;
-const mysqlCapFlagClientCompress = 0x20;
-const mysqlCapFlagClientODBC = 0x40;
-const mysqlCapFlagClientLocalFiles = 0x80;
-const mysqlCapFlagClientIgnoreSpace = 0x100;
-const mysqlCapFlagClientProtocol41 = 0x200;
-const mysqlCapFlagClientInteractive = 0x400;
-const mysqlCapFlagClientSsl = 0x800;
-const mysqlCapFlagClientIgnoreSigPipe = 0x1000;
-const mysqlCapFlagClientTransactions = 0x2000;
-const mysqlCapFlagClientReserved = 0x4000;
-const mysqlCapFlagClientSecureConnection = 0x8000;
-const mysqlCapFlagClientMultiStatements = 0x10000;
-const mysqlCapFlagClientMultiResults = 0x20000;
-const mysqlCapFlagClientPsMultiResults = 0x40000;
-const mysqlCapFlagClientPluginAuth = 0x80000;
-const mysqlCapFlagClientPluginAuthLenEncClientData = 0x200000;
-const mysqlCapFlagClientDeprecateEOF = 0x1000000;
+const mysqlCapFlagClientLongPassword = 0x00000001;
+const mysqlCapFlagClientFoundRows = 0x00000002;
+const mysqlCapFlagClientLongFlag = 0x00000004;
+const mysqlCapFlagClientConnectWithDB = 0x00000008;
+const mysqlCapFlagClientNoSchema = 0x00000010;
+const mysqlCapFlagClientCompress = 0x00000020;
+const mysqlCapFlagClientODBC = 0x00000040;
+const mysqlCapFlagClientLocalFiles = 0x00000080;
+const mysqlCapFlagClientIgnoreSpace = 0x00000100;
+const mysqlCapFlagClientProtocol41 = 0x00000200;
+const mysqlCapFlagClientInteractive = 0x00000400;
+const mysqlCapFlagClientSsl = 0x00000800;
+const mysqlCapFlagClientIgnoreSigPipe = 0x00001000;
+const mysqlCapFlagClientTransactions = 0x00002000;
+const mysqlCapFlagClientReserved = 0x00004000;
+const mysqlCapFlagClientSecureConnection = 0x00008000;
+const mysqlCapFlagClientMultiStatements = 0x00010000;
+const mysqlCapFlagClientMultiResults = 0x00020000;
+const mysqlCapFlagClientPsMultiResults = 0x00040000;
+const mysqlCapFlagClientPluginAuth = 0x00080000;
+const mysqlCapFlagClientPluginAuthLenEncClientData = 0x00200000;
+const mysqlCapFlagClientDeprecateEOF = 0x01000000;
+
+const mysqlServerFlagMoreResultsExists = 0x0008;
 
 enum MySQLGenericPacketType { ok, error, eof, other }
 
@@ -164,7 +166,7 @@ class MySQLPacket {
       payload = MySQLPacketOK.decode(Uint8List.sublistView(buffer, offset));
     } else if (type == 0xfe && payloadLength < 9) {
       // EOF packet
-      payload = MySQLPacketOK.decode(Uint8List.sublistView(buffer, offset));
+      payload = MySQLPacketEOF.decode(Uint8List.sublistView(buffer, offset));
     } else if (type == 0xff) {
       payload = MySQLPacketError.decode(Uint8List.sublistView(buffer, offset));
     } else {
@@ -323,6 +325,10 @@ class MySQLPacket {
 
   bool isEOFPacket() {
     final _payload = payload;
+
+    if (_payload is MySQLPacketEOF) {
+      return true;
+    }
 
     return _payload is MySQLPacketOK &&
         _payload.header == 0xfe &&

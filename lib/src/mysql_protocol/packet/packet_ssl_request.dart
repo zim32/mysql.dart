@@ -2,6 +2,14 @@ import 'dart:typed_data';
 import 'package:buffer/buffer.dart';
 import 'package:mysql_client/mysql_protocol.dart';
 
+const _supportedCapabitilies = mysqlCapFlagClientProtocol41 |
+    mysqlCapFlagClientSecureConnection |
+    mysqlCapFlagClientPluginAuth |
+    mysqlCapFlagClientPluginAuthLenEncClientData |
+    mysqlCapFlagClientMultiStatements |
+    mysqlCapFlagClientMultiResults |
+    mysqlCapFlagClientSsl;
+
 class MySQLPacketSSLRequest extends MySQLPacketPayload {
   int capabilityFlags;
   int maxPacketSize;
@@ -20,11 +28,7 @@ class MySQLPacketSSLRequest extends MySQLPacketPayload {
     required bool connectWithDB,
   }) {
     return MySQLPacketSSLRequest._(
-      capabilityFlags: mysqlCapFlagClientProtocol41 |
-          mysqlCapFlagClientSecureConnection |
-          mysqlCapFlagClientPluginAuth |
-          mysqlCapFlagClientPluginAuthLenEncClientData |
-          mysqlCapFlagClientSsl,
+      capabilityFlags: _supportedCapabitilies,
       maxPacketSize: 50 * 1024 * 1024,
       characterSet: initialHandshakePayload.charset,
       connectWithDB: connectWithDB,
