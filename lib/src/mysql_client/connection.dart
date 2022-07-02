@@ -1032,7 +1032,6 @@ class MySQLConnection {
     _responseCallback = null;
     _inTransaction = false;
     _incompleteBufferData.clear();
-    _lastError = null;
   }
 
   void _forceClose() {
@@ -1054,7 +1053,6 @@ class MySQLConnection {
     _responseCallback = null;
     _inTransaction = false;
     _incompleteBufferData.clear();
-    _lastError = null;
   }
 
   Future<void> _waitForState(_MySQLConnectionState state) async {
