@@ -35,8 +35,8 @@ class MySQLPacketInitialHandshake extends MySQLPacketPayload {
     offset += 1;
 
     // server version
-    final serverVersion = buffer.getAsciNullTerminatedString(offset);
-    offset += serverVersion.length + 1;
+    final serverVersion = buffer.getUtf8NullTerminatedString(offset);
+    offset += serverVersion.item2;
 
     // connection id
     final connectionID = byteData.getUint32(offset, Endian.little);
@@ -93,7 +93,7 @@ class MySQLPacketInitialHandshake extends MySQLPacketPayload {
     String? authPluginName;
 
     if (capabilityFlags & mysqlCapFlagClientPluginAuth != 0) {
-      authPluginName = buffer.getAsciNullTerminatedString(offset);
+      authPluginName = buffer.getUtf8NullTerminatedString(offset).item1;
     }
 
     return MySQLPacketInitialHandshake(
@@ -104,7 +104,7 @@ class MySQLPacketInitialHandshake extends MySQLPacketPayload {
       charset: charset,
       connectionID: connectionID,
       protocolVersion: protocolVersion,
-      serverVersion: serverVersion,
+      serverVersion: serverVersion.item1,
       statusFlags: statusFlags,
     );
   }

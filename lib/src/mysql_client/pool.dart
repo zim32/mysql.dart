@@ -32,7 +32,7 @@ class MySQLConnectionPool {
 
   /// Number of active connections in this pool
   /// Active are connections which are currently interacting with the database
-  int get activeConnectionsQty => _idleConnections.length;
+  int get activeConnectionsQty => _activeConnections.length;
 
   /// Number of idle connections in this pool
   /// Idle are connections which are currently not interacting with the database and ready to be used
@@ -45,12 +45,20 @@ class MySQLConnectionPool {
       _idleConnections + _activeConnections;
 
   /// See [MySQLConnection.execute]
-  Future<IResultSet> execute(String query,
-      [Map<String, dynamic>? params, bool iterable = false]) async {
+  Future<IResultSet> execute(
+    String query, [
+    Map<String, dynamic>? params,
+    bool iterable = false,
+  ]) async {
     final conn = await _getFreeConnection();
-    final result = await conn.execute(query, params, iterable);
-    _releaseConnection(conn);
-    return result;
+    try {
+      final result = await conn.execute(query, params, iterable);
+      _releaseConnection(conn);
+      return result;
+    } catch (e) {
+      _releaseConnection(conn);
+      rethrow;
+    }
   }
 
   /// Closes all connections in this pool and frees resources
@@ -65,7 +73,14 @@ class MySQLConnectionPool {
   /// See [MySQLConnection.prepare]
   Future<PreparedStmt> prepare(String query, [bool iterable = false]) async {
     final conn = await _getFreeConnection();
-    return conn.prepare(query, iterable);
+    try {
+      final stmt = conn.prepare(query, iterable);
+      _releaseConnection(conn);
+      return stmt;
+    } catch (e) {
+      _releaseConnection(conn);
+      rethrow;
+    }
   }
 
   /// Get free connection from this pool (possibly new connection) and invoke callback function with this connection

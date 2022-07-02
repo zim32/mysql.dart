@@ -1,3 +1,14 @@
+## 0.0.21
+
+- Fix _lastError reset in _forceClose() and used after
+
+## 0.0.20
+
+- Refactor error handling
+- Add section about error handling to README.md
+- Fix connection pool bugs
+- Fix mysql protocol string parsing (ascii instead of utf8)
+
 ## 0.0.19
 
 - Expose mysql server error code in MySQLServerException

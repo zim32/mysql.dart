@@ -177,6 +177,20 @@ create table book
   );
 
   test(
+    "testing error is thrown if syntax error in prepared stmt",
+    () async {
+      try {
+        await conn.prepare(
+          "INSERT INTO book (author_id, title) VA_LUESD (?, ?)",
+        );
+        fail("Exception is not thrown");
+      } catch (e) {
+        expect(e, isA<Exception>());
+      }
+    },
+  );
+
+  test(
     "testing delete",
     () async {
       final result = await conn.execute(
