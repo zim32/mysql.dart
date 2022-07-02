@@ -123,8 +123,9 @@ class MySQLConnection {
     // wait for connection established
     await Future.doWhile(() async {
       if (_lastError != null) {
+        final err = _lastError;
         _forceClose();
-        throw _lastError!;
+        throw err!;
       }
 
       if (_state == _MySQLConnectionState.connectionEstablished) {
@@ -1032,6 +1033,7 @@ class MySQLConnection {
     _responseCallback = null;
     _inTransaction = false;
     _incompleteBufferData.clear();
+    _lastError = null;
   }
 
   void _forceClose() {
@@ -1053,6 +1055,7 @@ class MySQLConnection {
     _responseCallback = null;
     _inTransaction = false;
     _incompleteBufferData.clear();
+    _lastError = null;
   }
 
   Future<void> _waitForState(_MySQLConnectionState state) async {

@@ -1,3 +1,7 @@
+## 0.0.21
+
+- Fix _lastError reset in _forceClose() and used after
+
 ## 0.0.20
 
 - Refactor error handling
