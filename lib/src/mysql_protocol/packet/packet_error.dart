@@ -28,7 +28,7 @@ class MySQLPacketError extends MySQLPacketPayload {
     offset += 6;
 
     // error message
-    final errorMessage = buffer.getAsciStringEOF(offset);
+    final errorMessage = buffer.getUtf8StringEOF(offset);
 
     return MySQLPacketError(
       header: header,

@@ -154,23 +154,73 @@ void main() {
   group("testing string parsing", () {
     test("testing getNullTerminatedString 1", () {
       final buffer = Uint8List.fromList([0x61, 0x62, 0x00]);
-      final actual = buffer.getAsciNullTerminatedString(0);
-      expect(actual, "ab");
+      final actual = buffer.getUtf8NullTerminatedString(0);
+      expect(actual.item1, "ab");
+      expect(actual.item2, 3);
     });
     test("testing getNullTerminatedString 2", () {
       final buffer = Uint8List.fromList([0x10, 0x61, 0x62, 0x00, 0x12, 0xff]);
-      final actual = buffer.getAsciNullTerminatedString(1);
-      expect(actual, "ab");
+      final actual = buffer.getUtf8NullTerminatedString(1);
+      expect(actual.item1, "ab");
+      expect(actual.item2, 3);
+    });
+    test("testing getNullTerminatedString multibyte 1", () {
+      final buffer = Uint8List.fromList([
+        0xd1,
+        0x82,
+        0xd0,
+        0xb5,
+        0xd1,
+        0x81,
+        0xd1,
+        0x82,
+        0x00,
+      ]);
+      final actual = buffer.getUtf8NullTerminatedString(0);
+      expect(actual.item1, "тест");
+      expect(actual.item2, 9);
+    });
+    test("testing getNullTerminatedString multibyte 2", () {
+      final buffer = Uint8List.fromList([
+        0x01,
+        0x02,
+        0xd1,
+        0x82,
+        0xd0,
+        0xb5,
+        0xd1,
+        0x81,
+        0xd1,
+        0x82,
+        0x00,
+        0x01,
+        0x02,
+      ]);
+      final actual = buffer.getUtf8NullTerminatedString(2);
+      expect(actual.item1, "тест");
+      expect(actual.item2, 9);
     });
     test("testing getStringEOF 1", () {
       final buffer = Uint8List.fromList([0x61, 0x62]);
-      final actual = buffer.getAsciNullTerminatedString(0);
+      final actual = buffer.getUtf8StringEOF(0);
       expect(actual, "ab");
     });
     test("testing getStringEOF 2", () {
       final buffer = Uint8List.fromList([0xff, 0xff, 0x61, 0x62]);
-      final actual = buffer.getAsciNullTerminatedString(2);
+      final actual = buffer.getUtf8StringEOF(2);
       expect(actual, "ab");
+    });
+    test("testing getStringEOF multibyte 1", () {
+      final buffer =
+          Uint8List.fromList([0xd1, 0x82, 0xd0, 0xb5, 0xd1, 0x81, 0xd1, 0x82]);
+      final actual = buffer.getUtf8StringEOF(0);
+      expect(actual, "тест");
+    });
+    test("testing getStringEOF multibyte 2", () {
+      final buffer = Uint8List.fromList(
+          [0x00, 0x01, 0xd1, 0x82, 0xd0, 0xb5, 0xd1, 0x81, 0xd1, 0x82]);
+      final actual = buffer.getUtf8StringEOF(2);
+      expect(actual, "тест");
     });
     test("testing getLengthEncodedString 1", () {
       final buffer = Uint8List.fromList([0x03, 0x64, 0x65, 0x66]);
