@@ -4,6 +4,12 @@ import 'package:buffer/buffer.dart';
 import 'package:mysql_client/mysql_protocol.dart';
 import 'package:mysql_client/mysql_protocol_extension.dart';
 
+const _supportedCapabitilies = mysqlCapFlagClientProtocol41 |
+    mysqlCapFlagClientSecureConnection |
+    mysqlCapFlagClientPluginAuth |
+    mysqlCapFlagClientPluginAuthLenEncClientData |
+    mysqlCapFlagClientMultiStatements;
+
 class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
   int capabilityFlags;
   int maxPacketSize;
@@ -44,10 +50,7 @@ class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
     );
 
     return MySQLPacketHandshakeResponse41(
-      capabilityFlags: mysqlCapFlagClientProtocol41 |
-          mysqlCapFlagClientSecureConnection |
-          mysqlCapFlagClientPluginAuth |
-          mysqlCapFlagClientPluginAuthLenEncClientData,
+      capabilityFlags: _supportedCapabitilies,
       maxPacketSize: 50 * 1024 * 1024,
       authPluginName: initialHandshakePayload.authPluginName!,
       characterSet: initialHandshakePayload.charset,
@@ -74,10 +77,7 @@ class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
     );
 
     return MySQLPacketHandshakeResponse41(
-      capabilityFlags: mysqlCapFlagClientProtocol41 |
-          mysqlCapFlagClientSecureConnection |
-          mysqlCapFlagClientPluginAuth |
-          mysqlCapFlagClientPluginAuthLenEncClientData,
+      capabilityFlags: _supportedCapabitilies,
       maxPacketSize: 50 * 1024 * 1024,
       authPluginName: initialHandshakePayload.authPluginName!,
       characterSet: initialHandshakePayload.charset,
@@ -93,6 +93,8 @@ class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
     if (database != null) {
       capabilityFlags = capabilityFlags | mysqlCapFlagClientConnectWithDB;
     }
+
+    print(capabilityFlags);
 
     buffer.writeUint32(capabilityFlags);
     buffer.writeUint32(maxPacketSize);
