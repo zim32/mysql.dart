@@ -1,3 +1,7 @@
+## 0.0.22
+
+- Check server supports SSL
+
 ## 0.0.21
 
 - Fix _lastError reset in _forceClose() and used after

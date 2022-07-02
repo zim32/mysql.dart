@@ -32,6 +32,7 @@ class MySQLConnection {
   final bool _secure;
   final List<int> _incompleteBufferData = [];
   Object? _lastError;
+  int _serverCapabilities = 0;
 
   MySQLConnection._({
     required Socket socket,
@@ -280,6 +281,14 @@ class MySQLConnection {
 
     if (payload is! MySQLPacketInitialHandshake) {
       throw MySQLClientException("Expected MySQLPacketInitialHandshake packet");
+    }
+
+    _serverCapabilities = payload.capabilityFlags;
+
+    if (_secure && (_serverCapabilities & mysqlCapFlagClientSsl == 0)) {
+      throw MySQLClientException(
+        "Server does not support SSL connection. Pass secure: false to createConnection or enable SSL support",
+      );
     }
 
     if (_secure) {
