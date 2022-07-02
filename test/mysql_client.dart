@@ -58,7 +58,35 @@ create table book
 
   tearDownAll(
     () async {
+      int counter = 0;
+
+      conn.onClose(() => counter++);
+      conn.onClose(() => counter++);
+
       await conn.close();
+      expect(conn.connected, false);
+      expect(counter, 2);
+    },
+  );
+
+  test(
+    "testing bad connection",
+    () async {
+      try {
+        final localConn = await MySQLConnection.createConnection(
+          host: host,
+          port: port,
+          userName: 'fake',
+          password: 'fake',
+          secure: false,
+        );
+
+        await localConn.connect();
+
+        fail("Not thrown");
+      } catch (e) {
+        expect(e, isA<MySQLServerException>());
+      }
     },
   );
 
@@ -150,7 +178,7 @@ create table book
 
         fail("Exception is not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLServerException>());
       }
     },
   );
@@ -171,7 +199,7 @@ create table book
         );
         fail("Exception is not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLServerException>());
       }
     },
   );
@@ -185,7 +213,7 @@ create table book
         );
         fail("Exception is not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLServerException>());
       }
     },
   );
@@ -341,7 +369,7 @@ create table book
         );
         fail("Not thrown");
       } catch (e) {
-        expect(e, isA<Exception>());
+        expect(e, isA<MySQLServerException>());
       }
 
       // check rows

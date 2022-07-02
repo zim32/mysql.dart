@@ -95,8 +95,6 @@ class MySQLPacketHandshakeResponse41 extends MySQLPacketPayload {
       capabilityFlags = capabilityFlags | mysqlCapFlagClientConnectWithDB;
     }
 
-    print(capabilityFlags);
-
     buffer.writeUint32(capabilityFlags);
     buffer.writeUint32(maxPacketSize);
     buffer.writeUint8(characterSet);
