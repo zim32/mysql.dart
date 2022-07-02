@@ -1,6 +1,7 @@
 ## 0.0.22
 
 - Check server supports SSL
+- Add support for multiple statements
 
 ## 0.0.21
 

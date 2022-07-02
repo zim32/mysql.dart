@@ -391,6 +391,24 @@ create table book
   );
 
   test(
+    "testing multiple statements",
+    () async {
+      final resultSets = await conn.execute(
+        "SELECT 1 as val_1_1; SELECT 2 as val_2_1, 3 as val_2_2",
+      );
+
+      expect(resultSets.next, isNotNull);
+
+      final resultSetsList = resultSets.toList();
+      expect(resultSetsList.length, 2);
+
+      expect(resultSetsList[0].rows.first.colByName("val_1_1"), "1");
+      expect(resultSetsList[1].rows.first.colByName("val_2_1"), "2");
+      expect(resultSetsList[1].rows.first.colByName("val_2_2"), "3");
+    },
+  );
+
+  test(
     "stress test: insert 5000 rows",
     () async {
       await conn.execute('TRUNCATE TABLE book');

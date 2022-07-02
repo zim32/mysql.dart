@@ -28,6 +28,8 @@ const mysqlCapFlagClientPluginAuth = 0x00080000;
 const mysqlCapFlagClientPluginAuthLenEncClientData = 0x00200000;
 const mysqlCapFlagClientDeprecateEOF = 0x01000000;
 
+const mysqlServerFlagMoreResultsExists = 0x0008;
+
 enum MySQLGenericPacketType { ok, error, eof, other }
 
 abstract class MySQLPacketPayload {
@@ -164,7 +166,7 @@ class MySQLPacket {
       payload = MySQLPacketOK.decode(Uint8List.sublistView(buffer, offset));
     } else if (type == 0xfe && payloadLength < 9) {
       // EOF packet
-      payload = MySQLPacketOK.decode(Uint8List.sublistView(buffer, offset));
+      payload = MySQLPacketEOF.decode(Uint8List.sublistView(buffer, offset));
     } else if (type == 0xff) {
       payload = MySQLPacketError.decode(Uint8List.sublistView(buffer, offset));
     } else {
@@ -323,6 +325,10 @@ class MySQLPacket {
 
   bool isEOFPacket() {
     final _payload = payload;
+
+    if (_payload is MySQLPacketEOF) {
+      return true;
+    }
 
     return _payload is MySQLPacketOK &&
         _payload.header == 0xfe &&

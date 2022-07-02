@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:mysql_client/mysql_protocol.dart';
@@ -441,6 +442,10 @@ class MySQLConnection {
     IterableResultSet? iterableResultSet;
     StreamSink<ResultSetRow>? sink;
 
+    // used as a pointer to handle multiple result sets
+    IResultSet? currentResultSet;
+    IResultSet? firstResultSet;
+
     _responseCallback = (data) async {
       try {
         MySQLPacket? packet;
@@ -500,18 +505,38 @@ class MySQLConnection {
               // check eof
               if (MySQLPacket.detectPacketType(data) ==
                   MySQLGenericPacketType.eof) {
-                state = 4;
-
                 final resultSetPacket = MySQLPacketResultSet(
                   columnCount: BigInt.from(colsCount),
                   columns: colDefs,
                   rows: resultSetRows,
                 );
 
-                _state = _MySQLConnectionState.connectionEstablished;
-                completer
-                    .complete(ResultSet._(resultSetPacket: resultSetPacket));
-                return;
+                final resultSet = ResultSet._(resultSetPacket: resultSetPacket);
+
+                if (currentResultSet != null) {
+                  currentResultSet!.next = resultSet;
+                } else {
+                  firstResultSet = resultSet;
+                }
+                currentResultSet = resultSet;
+
+                final eofPacket = MySQLPacket.decodeGenericPacket(data);
+                final eofPayload = eofPacket.payload as MySQLPacketEOF;
+
+                if (eofPayload.statusFlags & mysqlServerFlagMoreResultsExists !=
+                    0) {
+                  state = 0;
+                  colsCount = 0;
+                  colDefs = [];
+                  resultSetRows = [];
+                  return;
+                } else {
+                  // there is no more results, just return
+                  state = 4;
+                  _state = _MySQLConnectionState.connectionEstablished;
+                  completer.complete(firstResultSet);
+                  return;
+                }
               }
 
               packet = MySQLPacket.decodeResultSetRowPacket(data, colsCount);
@@ -528,7 +553,7 @@ class MySQLConnection {
             );
             _state = _MySQLConnectionState.connectionEstablished;
             return;
-          } else if (payload is MySQLPacketOK) {
+          } else if (payload is MySQLPacketOK || payload is MySQLPacketEOF) {
             // do nothing
           } else if (payload is MySQLPacketColumnCount) {
             state = 1;
@@ -932,7 +957,7 @@ class MySQLConnection {
             );
             _state = _MySQLConnectionState.connectionEstablished;
             return;
-          } else if (payload is MySQLPacketOK) {
+          } else if (payload is MySQLPacketOK || payload is MySQLPacketEOF) {
             // do nothing
           } else if (payload is MySQLPacketColumnCount) {
             state = 1;
@@ -1084,7 +1109,9 @@ class MySQLConnection {
 }
 
 /// Base class to represent result of calling [MySQLConnection.execute] and [PreparedStmt.execute]
-abstract class IResultSet {
+abstract class IResultSet
+    with IterableMixin<IResultSet>
+    implements Iterator<IResultSet>, Iterable<IResultSet> {
   /// Number of colums in this result if any
   int get numOfColumns;
 
@@ -1096,6 +1123,39 @@ abstract class IResultSet {
 
   /// Last insert ID
   BigInt get lastInsertID;
+
+  /// Next result set, if any.
+  /// Prepared statements and iterable result sets does not supprot this
+  IResultSet? next;
+
+  IResultSet? _current;
+
+  @override
+  Iterator<IResultSet> get iterator => this;
+
+  @override
+  IResultSet get current {
+    if (_current != null) {
+      return _current!;
+    } else {
+      throw RangeError("Trying to access past the end value");
+    }
+  }
+
+  @override
+  bool moveNext() {
+    if (_current == null) {
+      _current = this;
+      return true;
+    } else {
+      if (_current!.next != null) {
+        _current = _current!.next;
+        return true;
+      } else {
+        return false;
+      }
+    }
+  }
 
   /// Provides access to data rows (unavailable for iterable results)
   Iterable<ResultSetRow> get rows;
@@ -1150,7 +1210,7 @@ class ResultSet extends IResultSet {
 }
 
 /// Represents result of [MySQLConnection.execute] method when passing iterable = true
-class IterableResultSet implements IResultSet {
+class IterableResultSet with IterableMixin<IResultSet> implements IResultSet {
   final List<MySQLColumnDefinitionPacket> _columns;
   late StreamController<ResultSetRow> _controller;
 
@@ -1159,6 +1219,24 @@ class IterableResultSet implements IResultSet {
   }) : _columns = columns {
     _controller = StreamController();
   }
+
+  @override
+  IResultSet? get next => throw UnimplementedError();
+
+  @override
+  set next(val) => throw UnimplementedError();
+
+  @override
+  Iterator<IResultSet> get iterator => throw UnimplementedError();
+
+  @override
+  IResultSet? _current;
+
+  @override
+  IResultSet get current => throw UnimplementedError();
+
+  @override
+  bool moveNext() => throw UnimplementedError();
 
   StreamSink<ResultSetRow> get _sink => _controller.sink;
 
