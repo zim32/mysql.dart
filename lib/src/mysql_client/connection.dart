@@ -1470,8 +1470,9 @@ class ResultSetRow {
 
   /// Get column data by column name
   String? colByName(String columnName) {
-    final colIndex =
-        _colDefs.indexWhere((element) => element.name == columnName);
+    final colIndex = _colDefs.indexWhere(
+      (element) => element.name.toLowerCase() == columnName.toLowerCase(),
+    );
 
     if (colIndex == -1) {
       throw MySQLClientException("There is no column with name: $columnName");
@@ -1495,8 +1496,9 @@ class ResultSetRow {
   T? typedColByName<T>(String columnName) {
     final value = colByName(columnName);
 
-    final colIndex =
-        _colDefs.indexWhere((element) => element.name == columnName);
+    final colIndex = _colDefs.indexWhere(
+      (element) => element.name.toLowerCase() == columnName.toLowerCase(),
+    );
 
     final colDef = _colDefs[colIndex];
 

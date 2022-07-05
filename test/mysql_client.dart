@@ -139,11 +139,15 @@ create table book
       expect(row.colByName('id'), "1");
       expect(row.colByName('author_id'), null);
       expect(row.colByName('title'), "Новая книга");
-      expect(row.colByName('price'), "100");
+      expect(row.colByName('Title'), "Новая книга");
+      expect(row.colByName('PrIce'), "100");
       expect(row.typedColByName<int>('price'), 100);
       expect(row.typedColByName<double>('price'), 100.00);
+      expect(row.typedColByName<int>('Price'), 100);
+      expect(row.typedColByName<double>('pRice'), 100.00);
       expect(row.colByName('created_at'), "2020-01-01 01:00:15");
       expect(row.colByName('some_time'), null);
+      expect(row.colByName('Some_Time'), null);
 
       expect(row.assoc(), {
         "id": "1",
