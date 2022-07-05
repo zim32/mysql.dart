@@ -138,6 +138,32 @@ result.rowsStream.listen((row) {
 });
 ```
 
+### Multiple statements queries
+This library supports multiple statements in query() method. 
+If your query contains multiple statements, result will contain **next** property, which will point to the next result set.
+
+IResulSet class implements Iterable<IResulSet> interface, so you can iterate throw all result sets using for..in loop.
+
+**Multple statements are not supported for prepared statements and iterable result sets.**
+
+For example:
+
+```dart
+final resultSets = await conn.execute(
+  "SELECT 1 as val_1_1; SELECT 2 as val_2_1, 3 as val_2_2",
+);
+
+assert(resultSets.next != null);
+
+for (final result in resultSets) {
+  // for every result set
+  for (final row in result.rows) {
+    // for every row in result set
+    print(row.assoc());
+  }
+}
+```
+
 ### Tests
 
 To run tests execute
