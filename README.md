@@ -200,3 +200,8 @@ Here is how you can switch to logging branch in your pubspec.yaml file:
 ```
 
 Don't forget to switch back again, when you're done with debugging.
+
+
+### Support the author 🇺🇦
+
+If you like this project and want to support the author, you can [donate](https://www.paypal.com/donate/?hosted_button_id=HTNVERGX58MCQ) me via paypal donations service.
