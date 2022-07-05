@@ -1,3 +1,7 @@
+## 0.0.23
+
+- Fix caching_sha2_password auth plugin
+
 ## 0.0.22
 
 - Check server supports SSL
