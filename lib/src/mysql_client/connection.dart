@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:mysql_client/mysql_protocol.dart';
@@ -34,6 +35,7 @@ class MySQLConnection {
   final List<int> _incompleteBufferData = [];
   Object? _lastError;
   int _serverCapabilities = 0;
+  String? _activeAuthPluginName;
 
   MySQLConnection._({
     required Socket socket,
@@ -177,6 +179,8 @@ class MySQLConnection {
         final payload =
             authSwitchPacket.payload as MySQLPacketAuthSwitchRequest;
 
+        _activeAuthPluginName = payload.authPluginName;
+
         switch (payload.authPluginName) {
           case 'mysql_native_password':
             final responsePayload =
@@ -206,6 +210,42 @@ class MySQLConnection {
         packet = MySQLPacket.decodeGenericPacket(data);
       } catch (e) {
         rethrow;
+      }
+
+      if (packet.payload is MySQLPacketExtraAuthData) {
+        assert(_activeAuthPluginName != null);
+
+        if (_activeAuthPluginName != 'caching_sha2_password') {
+          throw MySQLClientException(
+              "Unexpected auth plugin name $_activeAuthPluginName, while receiving MySQLPacketExtraAuthData packet");
+        }
+
+        if (_secure == false) {
+          throw MySQLClientException(
+              "Auth plugin caching_sha2_password is supported only with secure connections. Pass secure: true or use another auth method");
+        }
+
+        final payload = packet.payload as MySQLPacketExtraAuthData;
+        final status = payload.pluginData.codeUnitAt(0);
+
+        if (status == 3) {
+          // server has password cache. just ignore
+          return;
+        } else if (status == 4) {
+          // send password to the server
+          final authExtraDataResponse = MySQLPacket(
+            sequenceID: packet.sequenceID + 1,
+            payload: MySQLPacketExtraAuthDataResponse(
+              data: Uint8List.fromList(utf8.encode(_password)),
+            ),
+            payloadLength: 0,
+          );
+
+          _socket.add(authExtraDataResponse.encode());
+          return;
+        } else {
+          throw MySQLClientException("Unsupported extra auth data: $data");
+        }
       }
 
       if (packet.isErrorPacket()) {
@@ -334,6 +374,7 @@ class MySQLConnection {
     }
 
     final authPluginName = payload.authPluginName;
+    _activeAuthPluginName = authPluginName;
 
     switch (authPluginName) {
       case 'mysql_native_password':

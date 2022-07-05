@@ -16,3 +16,5 @@ export 'src/mysql_protocol/packet/packet_result_set.dart';
 export 'src/mysql_protocol/packet/packet_result_set_row.dart';
 export 'src/mysql_protocol/packet/packet_binary_result_set.dart';
 export 'src/mysql_protocol/packet/packet_binary_result_set_row.dart';
+export 'src/mysql_protocol/packet/packet_extra_auth_data.dart';
+export 'src/mysql_protocol/packet/packet_extra_auth_data_response.dart';

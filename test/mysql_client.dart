@@ -78,7 +78,7 @@ create table book
           port: port,
           userName: 'fake',
           password: 'fake',
-          secure: false,
+          secure: true,
         );
 
         await localConn.connect();
