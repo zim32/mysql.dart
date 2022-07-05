@@ -1,3 +1,7 @@
+## 0.0.24
+
+- Fix colByName and typedColByName: ignore column name case
+
 ## 0.0.23
 
 - Fix caching_sha2_password auth plugin
