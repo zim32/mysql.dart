@@ -6,9 +6,9 @@ import 'package:test/test.dart';
 void main() {
   final host = InternetAddress('/tmp/mysql.sock', type: InternetAddressType.unix);
   final port = 3306;
-  final user = 'root';
-  final pass = 'password';
-  final db = 'somedata';
+  final user = 'your_user';
+  final pass = 'your_password';
+  final db = 'testdb';
 
   late MySQLConnection conn;
 
