@@ -1,3 +1,7 @@
+## 0.0.25
+
+- Add support for unix socket connection. See example/main_unix_socket.dart
+
 ## 0.0.24
 
 - Fix colByName and typedColByName: ignore column name case
