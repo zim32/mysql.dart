@@ -57,7 +57,7 @@ class MySQLConnection {
   /// Don't forget to call [MySQLConnection.connect] to actually connect to database, or you will get errors.
   /// See examples directory for code samples.
   ///
-  /// [host] host to connect to.
+  /// [host] host to connect to. Can be String or InternetAddress.
   /// [userName] database user name.
   /// [password] user password.
   /// [secure] If true - TLS will be used, if false - ordinary TCL connection.
