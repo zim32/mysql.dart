@@ -36,6 +36,7 @@ class MySQLConnection {
   Object? _lastError;
   int _serverCapabilities = 0;
   String? _activeAuthPluginName;
+  int _timeoutMs = 10000;
 
   MySQLConnection._({
     required Socket socket,
@@ -109,11 +110,13 @@ class MySQLConnection {
 
   /// Initiate connection to database. To close connection, invoke [MySQLConnection.close] method.
   ///
-  /// Default [timeoutMs] is 5000 milliseconds
-  Future<void> connect({int timeoutMs = 5000}) async {
+  /// Default [timeoutMs] is 10000 milliseconds
+  Future<void> connect({int timeoutMs = 10000}) async {
     if (_state != _MySQLConnectionState.fresh) {
       throw MySQLClientException("Can not connect: status is not fresh");
     }
+
+    _timeoutMs = timeoutMs;
 
     _state = _MySQLConnectionState.waitInitialHandshake;
 
@@ -447,7 +450,7 @@ class MySQLConnection {
     // wait for ready state
     if (_state != _MySQLConnectionState.connectionEstablished) {
       await _waitForState(_MySQLConnectionState.connectionEstablished)
-          .timeout(Duration(seconds: 10));
+          .timeout(Duration(milliseconds: _timeoutMs));
     }
 
     _state = _MySQLConnectionState.waitingCommandResponse;
@@ -739,7 +742,7 @@ class MySQLConnection {
     // wait for ready state
     if (_state != _MySQLConnectionState.connectionEstablished) {
       await _waitForState(_MySQLConnectionState.connectionEstablished)
-          .timeout(Duration(seconds: 10));
+          .timeout(Duration(milliseconds: _timeoutMs));
     }
 
     _state = _MySQLConnectionState.waitingCommandResponse;
@@ -858,7 +861,7 @@ class MySQLConnection {
     // wait for ready state
     if (_state != _MySQLConnectionState.connectionEstablished) {
       await _waitForState(_MySQLConnectionState.connectionEstablished)
-          .timeout(Duration(seconds: 10));
+          .timeout(Duration(milliseconds: _timeoutMs));
     }
 
     _state = _MySQLConnectionState.waitingCommandResponse;
@@ -1045,7 +1048,7 @@ class MySQLConnection {
     // wait for ready state
     if (_state != _MySQLConnectionState.connectionEstablished) {
       await _waitForState(_MySQLConnectionState.connectionEstablished)
-          .timeout(Duration(seconds: 10));
+          .timeout(Duration(milliseconds: _timeoutMs));
     }
 
     final payload = MySQLPacketCommStmtClose(
