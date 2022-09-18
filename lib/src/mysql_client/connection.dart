@@ -68,7 +68,7 @@ class MySQLConnection {
   /// By default after connection is established, this library executes query to switch connection charset and collation:
   ///
   /// ```
-  /// SET @@collation_connection=$_collation, @@character_set_client=utf8, @@character_set_connection=utf8, @@character_set_results=utf8
+  /// SET @@collation_connection=$_collation, @@character_set_client=utf8mb4, @@character_set_connection=utf8mb4, @@character_set_results=utf8mb4
   /// ```
   static Future<MySQLConnection> createConnection({
     required dynamic host,
@@ -77,7 +77,7 @@ class MySQLConnection {
     required String password,
     bool secure = true,
     String? databaseName,
-    String collation = 'utf8_general_ci',
+    String collation = 'utf8mb4_general_ci',
   }) async {
     final Socket socket = await Socket.connect(host, port);
 
@@ -152,7 +152,7 @@ class MySQLConnection {
 
     // set connection charset
     await execute(
-      'SET @@collation_connection=$_collation, @@character_set_client=utf8, @@character_set_connection=utf8, @@character_set_results=utf8',
+      'SET @@collation_connection=$_collation, @@character_set_client=utf8mb4, @@character_set_connection=utf8mb4, @@character_set_results=utf8mb4',
     );
   }
 
