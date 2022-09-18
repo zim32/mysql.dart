@@ -1,3 +1,9 @@
+## 0.0.26
+
+- Change default charset to ut8mb4 (fix emojies)
+- Add **timeoutMs** option to connect() method
+- Increase default timeout from 5 seconds to 10 seconds
+
 ## 0.0.25
 
 - Add support for unix socket connection. See example/main_unix_socket.dart
