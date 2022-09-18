@@ -169,6 +169,9 @@ class MySQLPacket {
       payload = MySQLPacketEOF.decode(Uint8List.sublistView(buffer, offset));
     } else if (type == 0xff) {
       payload = MySQLPacketError.decode(Uint8List.sublistView(buffer, offset));
+    } else if (type == 0x01) {
+      payload = MySQLPacketExtraAuthData.decode(
+          Uint8List.sublistView(buffer, offset));
     } else {
       throw MySQLProtocolException("Unsupported generic packet: $buffer");
     }

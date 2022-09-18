@@ -1,3 +1,21 @@
+## 0.0.26
+
+- Change default charset to ut8mb4 (fix emojies)
+- Add **timeoutMs** option to connect() method
+- Increase default timeout from 5 seconds to 10 seconds
+
+## 0.0.25
+
+- Add support for unix socket connection. See example/main_unix_socket.dart
+
+## 0.0.24
+
+- Fix colByName and typedColByName: ignore column name case
+
+## 0.0.23
+
+- Fix caching_sha2_password auth plugin
+
 ## 0.0.22
 
 - Check server supports SSL

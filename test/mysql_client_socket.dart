@@ -4,7 +4,8 @@ import 'package:mysql_client/mysql_client.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final host = '127.0.0.1';
+  final host =
+      InternetAddress('/tmp/mysql.sock', type: InternetAddressType.unix);
   final port = 3306;
   final user = 'your_user';
   final pass = 'your_password';
@@ -16,7 +17,7 @@ void main() {
     () async {
       stdout.writeln("\n!!!!!!!!!!!!!!!!!!!!!");
       stdout.writeln(
-          "Warning this test will execute real queries to database in host: $host, port: $port, dbname: $db. Continue? y/n");
+          "Warning this test will execute real queries to database on Socket: $host, port: $port, dbname: $db. Continue? y/n");
       stdout.writeln("!!!!!!!!!!!!!!!!!!!!!");
 
       final response = stdin.readLineSync();
@@ -39,7 +40,7 @@ void main() {
 
       await conn.execute("DROP DATABASE IF EXISTS $db");
       await conn.execute(
-        "CREATE DATABASE $db CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci",
+        "CREATE DATABASE $db CHARACTER SET utf8 COLLATE utf8_general_ci",
       );
       await conn.execute("USE $db");
       await conn.execute("""
@@ -97,7 +98,7 @@ create table book
         "INSERT INTO book (author_id, title, price, created_at) VALUES (:author, :title, :price, :created)",
         {
           "author": null,
-          "title": "Новая книга 😁",
+          "title": "Новая книга",
           "price": 100,
           "created": "2020-01-01 01:00:15",
         },
@@ -128,7 +129,7 @@ create table book
 
       expect(row.colAt(0), "1");
       expect(row.colAt(1), null);
-      expect(row.colAt(2), "Новая книга 😁");
+      expect(row.colAt(2), "Новая книга");
       expect(row.colAt(3), "100");
       expect(row.colAt(4), "2020-01-01 01:00:15");
       expect(row.colAt(5), null);
@@ -138,8 +139,8 @@ create table book
 
       expect(row.colByName('id'), "1");
       expect(row.colByName('author_id'), null);
-      expect(row.colByName('title'), "Новая книга 😁");
-      expect(row.colByName('Title'), "Новая книга 😁");
+      expect(row.colByName('title'), "Новая книга");
+      expect(row.colByName('Title'), "Новая книга");
       expect(row.colByName('PrIce'), "100");
       expect(row.typedColByName<int>('price'), 100);
       expect(row.typedColByName<double>('price'), 100.00);
@@ -152,7 +153,7 @@ create table book
       expect(row.assoc(), {
         "id": "1",
         "author_id": null,
-        "title": "Новая книга 😁",
+        "title": "Новая книга",
         "price": "100",
         "created_at": "2020-01-01 01:00:15",
         "some_time": null,
@@ -161,7 +162,7 @@ create table book
       expect(row.typedAssoc(), {
         "id": 1,
         "author_id": null,
-        "title": "Новая книга 😁",
+        "title": "Новая книга",
         "price": 100,
         "created_at": "2020-01-01 01:00:15",
         "some_time": null,

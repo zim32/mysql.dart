@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:mysql_client/mysql_protocol.dart';
@@ -41,6 +42,8 @@ class MySQLConnection {
   final List<int> _incompleteBufferData = [];
   Object? _lastError;
   int _serverCapabilities = 0;
+  String? _activeAuthPluginName;
+  int _timeoutMs = 10000;
 
   MySQLConnection._({
     required Socket socket,
@@ -62,7 +65,7 @@ class MySQLConnection {
   /// Don't forget to call [MySQLConnection.connect] to actually connect to database, or you will get errors.
   /// See examples directory for code samples.
   ///
-  /// [host] host to connect to.
+  /// [host] host to connect to. Can be String or InternetAddress.
   /// [userName] database user name.
   /// [password] user password.
   /// [secure] If true - TLS will be used, if false - ordinary TCL connection.
@@ -72,22 +75,26 @@ class MySQLConnection {
   /// By default after connection is established, this library executes query to switch connection charset and collation:
   ///
   /// ```
-  /// SET @@collation_connection=$_collation, @@character_set_client=utf8, @@character_set_connection=utf8, @@character_set_results=utf8
+  /// SET @@collation_connection=$_collation, @@character_set_client=utf8mb4, @@character_set_connection=utf8mb4, @@character_set_results=utf8mb4
   /// ```
   static Future<MySQLConnection> createConnection({
-    required String host,
+    required dynamic host,
     required int port,
     required String userName,
     required String password,
     bool secure = true,
     String? databaseName,
-    String collation = 'utf8_general_ci',
+    String collation = 'utf8mb4_general_ci',
   }) async {
     Logger.level = loggingLevel;
     logger.d("Establishing socket connection");
-    final socket = await Socket.connect(host, port);
+    final Socket socket = await Socket.connect(host, port);
     logger.d("Socket connection established");
-    socket.setOption(SocketOption.tcpNoDelay, true);
+
+    if (socket.address.type != InternetAddressType.unix) {
+      // no support for extensions on sockets
+      socket.setOption(SocketOption.tcpNoDelay, true);
+    }
 
     final client = MySQLConnection._(
       socket: socket,
@@ -113,11 +120,13 @@ class MySQLConnection {
 
   /// Initiate connection to database. To close connection, invoke [MySQLConnection.close] method.
   ///
-  /// Default [timeoutMs] is 5000 milliseconds
-  Future<void> connect({int timeoutMs = 5000}) async {
+  /// Default [timeoutMs] is 10000 milliseconds
+  Future<void> connect({int timeoutMs = 10000}) async {
     if (_state != _MySQLConnectionState.fresh) {
       throw MySQLClientException("Can not connect: status is not fresh");
     }
+
+    _timeoutMs = timeoutMs;
 
     _state = _MySQLConnectionState.waitInitialHandshake;
 
@@ -153,7 +162,7 @@ class MySQLConnection {
 
     // set connection charset
     await execute(
-      'SET @@collation_connection=$_collation, @@character_set_client=utf8, @@character_set_connection=utf8, @@character_set_results=utf8',
+      'SET @@collation_connection=$_collation, @@character_set_client=utf8mb4, @@character_set_connection=utf8mb4, @@character_set_results=utf8mb4',
     );
   }
 
@@ -193,6 +202,7 @@ class MySQLConnection {
             authSwitchPacket.payload as MySQLPacketAuthSwitchRequest;
 
         logger.d("Auth plugin name is: ${payload.authPluginName}");
+        _activeAuthPluginName = payload.authPluginName;
 
         switch (payload.authPluginName) {
           case 'mysql_native_password':
@@ -224,6 +234,42 @@ class MySQLConnection {
       } catch (e) {
         logger.e("Skipping invalid packet: $data");
         rethrow;
+      }
+
+      if (packet.payload is MySQLPacketExtraAuthData) {
+        assert(_activeAuthPluginName != null);
+
+        if (_activeAuthPluginName != 'caching_sha2_password') {
+          throw MySQLClientException(
+              "Unexpected auth plugin name $_activeAuthPluginName, while receiving MySQLPacketExtraAuthData packet");
+        }
+
+        if (_secure == false) {
+          throw MySQLClientException(
+              "Auth plugin caching_sha2_password is supported only with secure connections. Pass secure: true or use another auth method");
+        }
+
+        final payload = packet.payload as MySQLPacketExtraAuthData;
+        final status = payload.pluginData.codeUnitAt(0);
+
+        if (status == 3) {
+          // server has password cache. just ignore
+          return;
+        } else if (status == 4) {
+          // send password to the server
+          final authExtraDataResponse = MySQLPacket(
+            sequenceID: packet.sequenceID + 1,
+            payload: MySQLPacketExtraAuthDataResponse(
+              data: Uint8List.fromList(utf8.encode(_password)),
+            ),
+            payloadLength: 0,
+          );
+
+          _socket.add(authExtraDataResponse.encode());
+          return;
+        } else {
+          throw MySQLClientException("Unsupported extra auth data: $data");
+        }
       }
 
       if (packet.isErrorPacket()) {
@@ -359,6 +405,7 @@ class MySQLConnection {
     }
 
     final authPluginName = payload.authPluginName;
+    _activeAuthPluginName = authPluginName;
 
     logger.d("Auth plugin name is: $authPluginName");
 
@@ -436,7 +483,7 @@ class MySQLConnection {
     // wait for ready state
     if (_state != _MySQLConnectionState.connectionEstablished) {
       await _waitForState(_MySQLConnectionState.connectionEstablished)
-          .timeout(Duration(seconds: 10));
+          .timeout(Duration(milliseconds: _timeoutMs));
     }
 
     _state = _MySQLConnectionState.waitingCommandResponse;
@@ -728,7 +775,7 @@ class MySQLConnection {
     // wait for ready state
     if (_state != _MySQLConnectionState.connectionEstablished) {
       await _waitForState(_MySQLConnectionState.connectionEstablished)
-          .timeout(Duration(seconds: 10));
+          .timeout(Duration(milliseconds: _timeoutMs));
     }
 
     _state = _MySQLConnectionState.waitingCommandResponse;
@@ -847,7 +894,7 @@ class MySQLConnection {
     // wait for ready state
     if (_state != _MySQLConnectionState.connectionEstablished) {
       await _waitForState(_MySQLConnectionState.connectionEstablished)
-          .timeout(Duration(seconds: 10));
+          .timeout(Duration(milliseconds: _timeoutMs));
     }
 
     _state = _MySQLConnectionState.waitingCommandResponse;
@@ -1034,7 +1081,7 @@ class MySQLConnection {
     // wait for ready state
     if (_state != _MySQLConnectionState.connectionEstablished) {
       await _waitForState(_MySQLConnectionState.connectionEstablished)
-          .timeout(Duration(seconds: 10));
+          .timeout(Duration(milliseconds: _timeoutMs));
     }
 
     final payload = MySQLPacketCommStmtClose(
@@ -1463,8 +1510,9 @@ class ResultSetRow {
 
   /// Get column data by column name
   String? colByName(String columnName) {
-    final colIndex =
-        _colDefs.indexWhere((element) => element.name == columnName);
+    final colIndex = _colDefs.indexWhere(
+      (element) => element.name.toLowerCase() == columnName.toLowerCase(),
+    );
 
     if (colIndex == -1) {
       throw MySQLClientException("There is no column with name: $columnName");
@@ -1488,8 +1536,9 @@ class ResultSetRow {
   T? typedColByName<T>(String columnName) {
     final value = colByName(columnName);
 
-    final colIndex =
-        _colDefs.indexWhere((element) => element.name == columnName);
+    final colIndex = _colDefs.indexWhere(
+      (element) => element.name.toLowerCase() == columnName.toLowerCase(),
+    );
 
     final colDef = _colDefs[colIndex];
 
