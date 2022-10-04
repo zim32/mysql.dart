@@ -1,3 +1,7 @@
+## 0.0.27
+
+- Add timeoutMs param to pool constructor
+
 ## 0.0.26
 
 - Change default charset to ut8mb4 (fix emojies)
