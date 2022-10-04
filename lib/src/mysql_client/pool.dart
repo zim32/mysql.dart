@@ -11,14 +11,16 @@ class MySQLConnectionPool {
   final String? databaseName;
   final bool secure;
   final String collation;
+  final int timeoutMs;
 
   final List<MySQLConnection> _activeConnections = [];
   final List<MySQLConnection> _idleConnections = [];
 
   /// Creates new pool
   ///
-  /// Almost all parameters are identical to [MySQLConnection.connect]
+  /// Almost all parameters are identical to [MySQLConnection.createConnection]
   /// Pass [maxConnections] to tell pool maximum number of connections it can use
+  /// You can specify [timeoutMs], it will be passed to [MySQLConnection.connect] method when creating new connections
   MySQLConnectionPool({
     required this.host,
     required this.port,
@@ -28,6 +30,7 @@ class MySQLConnectionPool {
     this.databaseName,
     this.secure = true,
     this.collation = 'utf8_general_ci',
+    this.timeoutMs = 10000,
   }) : _password = password;
 
   /// Number of active connections in this pool
@@ -123,7 +126,7 @@ class MySQLConnectionPool {
         collation: collation,
       );
 
-      await conn.connect();
+      await conn.connect(timeoutMs: timeoutMs);
       _activeConnections.add(conn);
 
       // remove connection from pool, if connection is closed
