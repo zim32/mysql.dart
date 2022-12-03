@@ -163,7 +163,7 @@ create table book
         "author_id": null,
         "title": "Новая книга 😁",
         "price": 100,
-        "created_at": "2020-01-01 01:00:15",
+        "created_at": DateTime.parse("2020-01-01 01:00:15"),
         "some_time": null,
       });
     },
