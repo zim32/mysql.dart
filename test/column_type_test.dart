@@ -340,9 +340,9 @@ void main() {
           .convertStringValueToProvidedType<String>('2022-01-05 02:00:34');
       expect(result, '2022-01-05 02:00:34');
 
-      dynamic resultAdDate = sqlType
+      dynamic resultAsDate = sqlType
           .convertStringValueToProvidedType<DateTime>('2022-01-05 02:00:34');
-      expect(resultAdDate, DateTime.parse('2022-01-05 02:00:34'));
+      expect(resultAsDate, DateTime.parse('2022-01-05 02:00:34'));
 
       expect(
         () => sqlType
