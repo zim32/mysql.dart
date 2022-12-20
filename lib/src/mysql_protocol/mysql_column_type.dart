@@ -194,6 +194,8 @@ class MySQLColumnType {
       case mysqlColumnTypeFloat:
       case mysqlColumnTypeDouble:
         return double;
+      case mysqlColumnTypeDate:
+      case mysqlColumnTypeTime:
       case mysqlColumnTypeDateTime2:
       case mysqlColumnTypeDateTime:
       case mysqlColumnTypeTimestamp:
