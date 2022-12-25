@@ -146,7 +146,6 @@ class MySQLColumnType {
     if (T == DateTime) {
       switch (_value) {
         case mysqlColumnTypeDate:
-        case mysqlColumnTypeTime:
         case mysqlColumnTypeDateTime2:
         case mysqlColumnTypeDateTime:
         case mysqlColumnTypeTimestamp:
@@ -190,12 +189,12 @@ class MySQLColumnType {
       case mysqlColumnTypeLong:
       case mysqlColumnTypeLongLong:
       case mysqlColumnTypeInt24:
+      case mysqlColumnTypeYear:
         return int;
       case mysqlColumnTypeFloat:
       case mysqlColumnTypeDouble:
         return double;
       case mysqlColumnTypeDate:
-      case mysqlColumnTypeTime:
       case mysqlColumnTypeDateTime2:
       case mysqlColumnTypeDateTime:
       case mysqlColumnTypeTimestamp:
