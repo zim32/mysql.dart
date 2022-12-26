@@ -3,8 +3,13 @@ import 'package:mysql_client/exception.dart';
 import 'package:mysql_client/mysql_client.dart';
 import 'package:test/test.dart';
 
-void testMysqlClient(dynamic host, int port, String user, String pass, String db) {
-
+void testMysqlClient(
+  dynamic host,
+  int port,
+  String user,
+  String pass,
+  String db,
+) {
   late MySQLConnection conn;
 
   setUpAll(
@@ -439,7 +444,9 @@ create table book
     "testing column types mapping",
     () async {
       String tableName = 'column_types_test_123';
-      await conn.execute("DROP TABLE IF EXISTS $tableName",);
+      await conn.execute(
+        "DROP TABLE IF EXISTS $tableName",
+      );
 
       await conn.execute("""
         CREATE TABLE $tableName (
@@ -505,8 +512,7 @@ create table book
         col_text = 'test_string', 
         col_mediumtext = 'test_string', 
         col_longtext = 'test_string';
-        """
-      );
+        """);
       var response = await conn.execute("SELECT * FROM $tableName");
       for (var row in response.rows) {
         var typedAssoc = row.typedAssoc();
