@@ -143,8 +143,23 @@ class MySQLColumnType {
       }
     }
 
+    if (T == DateTime) {
+      switch (_value) {
+        case mysqlColumnTypeDate:
+        case mysqlColumnTypeDateTime2:
+        case mysqlColumnTypeDateTime:
+        case mysqlColumnTypeTimestamp:
+        case mysqlColumnTypeTimestamp2:
+          return DateTime.parse(value) as T;
+        default:
+          throw MySQLProtocolException(
+            "Can not convert MySQL type $_value to requested type DateTime",
+          );
+      }
+    }
+
     throw MySQLProtocolException(
-      "Can not convert MySQL type ${T.runtimeType} to requested type int",
+      "Can not convert MySQL type $_value to requested type ${T.runtimeType}",
     );
   }
 
@@ -174,10 +189,17 @@ class MySQLColumnType {
       case mysqlColumnTypeLong:
       case mysqlColumnTypeLongLong:
       case mysqlColumnTypeInt24:
+      case mysqlColumnTypeYear:
         return int;
       case mysqlColumnTypeFloat:
       case mysqlColumnTypeDouble:
         return double;
+      case mysqlColumnTypeDate:
+      case mysqlColumnTypeDateTime2:
+      case mysqlColumnTypeDateTime:
+      case mysqlColumnTypeTimestamp:
+      case mysqlColumnTypeTimestamp2:
+        return DateTime;
       default:
         return String;
     }

@@ -3,12 +3,7 @@ import 'package:mysql_client/exception.dart';
 import 'package:mysql_client/mysql_client.dart';
 import 'package:test/test.dart';
 
-void main() {
-  final host = '127.0.0.1';
-  final port = 3306;
-  final user = 'your_user';
-  final pass = 'your_password';
-  final db = 'testdb';
+void testMysqlClient(dynamic host, int port, String user, String pass, String db) {
 
   late MySQLConnection conn;
 
@@ -16,7 +11,7 @@ void main() {
     () async {
       stdout.writeln("\n!!!!!!!!!!!!!!!!!!!!!");
       stdout.writeln(
-          "Warning this test will execute real queries to database in host: $host, port: $port, dbname: $db. Continue? y/n");
+          "Warning this test will execute real queries to database at: $host, port: $port, dbname: $db. Continue? y/n");
       stdout.writeln("!!!!!!!!!!!!!!!!!!!!!");
 
       final response = stdin.readLineSync();
@@ -163,7 +158,7 @@ create table book
         "author_id": null,
         "title": "Новая книга 😁",
         "price": 100,
-        "created_at": "2020-01-01 01:00:15",
+        "created_at": DateTime.parse("2020-01-01 01:00:15"),
         "some_time": null,
       });
     },
@@ -441,7 +436,140 @@ create table book
   );
 
   test(
-    "stress test: insert 5000 rows",
+    "testing column types mapping",
+    () async {
+      String tableName = 'column_types_test_123';
+      await conn.execute("DROP TABLE IF EXISTS $tableName",);
+
+      await conn.execute("""
+        CREATE TABLE $tableName (
+          col_pk INT AUTO_INCREMENT PRIMARY KEY,
+          
+          col_bit BIT DEFAULT 1,
+          col_tinyint TINYINT DEFAULT 1,
+          col_bool BOOL DEFAULT 1,
+          col_smallint SMALLINT DEFAULT 1,
+          col_mediumint MEDIUMINT DEFAULT 1,
+          col_int INT DEFAULT 1,
+          col_integer INTEGER DEFAULT 1,
+          col_bigint BIGINT DEFAULT 1,
+          col_decimal DECIMAL DEFAULT 1.1,
+          col_dec DEC DEFAULT 1.1,
+          col_numeric NUMERIC DEFAULT 1.1,
+          col_fixed FIXED DEFAULT 1.1,
+          col_float FLOAT DEFAULT 1.1,
+          col_double DOUBLE DEFAULT 1.1,
+          
+          col_date DATE DEFAULT '2000-01-01',
+          col_time TIME DEFAULT '12:00:00',
+          col_datetime DATETIME DEFAULT '2000-01-01 12:00:00',
+          col_timestamp TIMESTAMP DEFAULT '2000-01-01 12:00:00',
+          col_year YEAR DEFAULT '2000',
+
+          col_char CHAR(255) DEFAULT 'test_string',
+          col_varchar VARCHAR(255) DEFAULT 'test_string',
+          col_binary BINARY(255) DEFAULT 'test_string',
+          col_varbinary VARBINARY(255) DEFAULT 'test_string',
+          col_tinyblob TINYBLOB,
+          col_blob BLOB, 
+          col_mediumblob MEDIUMBLOB, 
+          col_longblob LONGBLOB,
+          col_tinytext TINYTEXT, 
+          col_text TEXT, 
+          col_mediumtext MEDIUMTEXT, 
+          col_longtext LONGTEXT,
+          col_enum ENUM('test1', 'test2', 'test3') DEFAULT 'test1',
+          col_set SET('test1', 'test2', 'test3') DEFAULT 'test1'
+          /*
+          TODO: support for spatial types?
+          col_geometry GEOMETRY,
+          col_point POINT DEFAULT (Point(0.1,0.1)),
+          col_linestring LINESTRING,
+          col_polygon POLYGON,
+          col_multipoint MULTIPOINT,
+          col_multilinestring MULTILINESTRING,
+          col_multipolygon MULTIPOLYGON,
+          col_geometrycollection GEOMETRYCOLLECTION
+          */
+        )
+      """);
+
+      //insert and set values for columns with no defaults
+      await conn.execute("""
+        INSERT INTO $tableName SET 
+        col_tinyblob = 'test_string', 
+        col_blob = 'test_string', 
+        col_mediumblob = 'test_string', 
+        col_longblob = 'test_string', 
+        col_tinytext = 'test_string', 
+        col_text = 'test_string', 
+        col_mediumtext = 'test_string', 
+        col_longtext = 'test_string';
+        """
+      );
+      var response = await conn.execute("SELECT * FROM $tableName");
+      for (var row in response.rows) {
+        var typedAssoc = row.typedAssoc();
+
+        expect(typedAssoc['col_pk'].runtimeType, int);
+        expect(typedAssoc['col_bit'].runtimeType, String);
+        expect(typedAssoc['col_tinyint'].runtimeType, int);
+        expect(typedAssoc['col_bool'].runtimeType, bool);
+        expect(typedAssoc['col_smallint'].runtimeType, int);
+        expect(typedAssoc['col_mediumint'].runtimeType, int);
+        expect(typedAssoc['col_int'].runtimeType, int);
+        expect(typedAssoc['col_integer'].runtimeType, int);
+        expect(typedAssoc['col_bigint'].runtimeType, int);
+        expect(typedAssoc['col_decimal'].runtimeType, String);
+        expect(typedAssoc['col_dec'].runtimeType, String);
+        expect(typedAssoc['col_numeric'].runtimeType, String);
+        expect(typedAssoc['col_fixed'].runtimeType, String);
+        expect(typedAssoc['col_float'].runtimeType, double);
+        expect(typedAssoc['col_double'].runtimeType, double);
+
+        expect(typedAssoc['col_date'].runtimeType, DateTime);
+        expect(typedAssoc['col_time'].runtimeType, String);
+        expect(typedAssoc['col_datetime'].runtimeType, DateTime);
+        expect(typedAssoc['col_timestamp'].runtimeType, DateTime);
+        expect(typedAssoc['col_year'].runtimeType, int);
+
+        expect(typedAssoc['col_char'].runtimeType, String);
+        expect(typedAssoc['col_varchar'].runtimeType, String);
+        expect(typedAssoc['col_binary'].runtimeType, String);
+        expect(typedAssoc['col_varbinary'].runtimeType, String);
+        expect(typedAssoc['col_tinyblob'].runtimeType, String);
+        expect(typedAssoc['col_blob'].runtimeType, String);
+        expect(typedAssoc['col_mediumblob'].runtimeType, String);
+        expect(typedAssoc['col_longblob'].runtimeType, String);
+        expect(typedAssoc['col_tinytext'].runtimeType, String);
+        expect(typedAssoc['col_text'].runtimeType, String);
+        expect(typedAssoc['col_mediumtext'].runtimeType, String);
+        expect(typedAssoc['col_longtext'].runtimeType, String);
+        expect(typedAssoc['col_enum'].runtimeType, String);
+        expect(typedAssoc['col_set'].runtimeType, String);
+      }
+
+      var groupedResponse = await conn.execute("""
+      SELECT 
+      col_pk, 
+      SUM(col_int) as sum_int, 
+      MAX(col_int) as max_int, 
+      SUM(col_double) as sum_double 
+      FROM $tableName GROUP BY col_pk
+      """);
+      for (var row in groupedResponse.rows) {
+        var typedAssoc = row.typedAssoc();
+        expect(typedAssoc['col_pk'].runtimeType, int);
+        expect(typedAssoc['sum_int'].runtimeType, String);
+        expect(typedAssoc['max_int'].runtimeType, int);
+        expect(typedAssoc['sum_double'].runtimeType, double);
+      }
+    },
+  );
+
+  int stressTestRows = 1000;
+  test(
+    "stress test: insert $stressTestRows rows",
     () async {
       await conn.execute('TRUNCATE TABLE book');
 
@@ -449,9 +577,9 @@ create table book
         'INSERT INTO book (title, price, created_at) VALUES (?, ?, ?)',
       );
 
-      print("Inserting 5000 rows...");
+      print("Inserting $stressTestRows rows...");
 
-      for (int x = 0; x < 5000; x++) {
+      for (int x = 0; x < stressTestRows; x++) {
         await stmt.execute(
           ['Some title $x', x, '2022-04-02 00:00:00'],
         );
@@ -468,7 +596,7 @@ create table book
         receivedRows++;
       }
 
-      expect(receivedRows, 5000);
+      expect(receivedRows, stressTestRows);
     },
     timeout: Timeout(Duration(seconds: 60)),
   );
