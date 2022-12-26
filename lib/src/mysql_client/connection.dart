@@ -1559,6 +1559,9 @@ class ResultSetRow {
         case bool:
           decodedValue = int.parse(value) > 0;
           break;
+        case DateTime:
+          decodedValue = DateTime.parse(value);
+          break;
         case String:
           decodedValue = value;
           break;
