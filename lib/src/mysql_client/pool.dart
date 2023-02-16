@@ -3,7 +3,7 @@ import 'package:mysql_client/mysql_client.dart';
 
 /// Class to create and manage pool of database connections
 class MySQLConnectionPool {
-  final String host;
+  final dynamic host;
   final int port;
   final String userName;
   final String _password;
