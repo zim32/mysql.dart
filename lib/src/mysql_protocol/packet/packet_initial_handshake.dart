@@ -113,4 +113,21 @@ class MySQLPacketInitialHandshake extends MySQLPacketPayload {
   Uint8List encode() {
     throw UnimplementedError();
   }
+
+  @override
+  String toString() {
+    return """
+MySQLPacketInitialHandshake:
+
+authPluginDataPart1: $authPluginDataPart1,
+authPluginDataPart2: $authPluginDataPart2,
+authPluginName: $authPluginName,
+capabilityFlags: $capabilityFlags,
+charset: $charset,
+connectionID: $connectionID,
+protocolVersion: $protocolVersion,
+serverVersion: $serverVersion,
+statusFlags: $statusFlags
+""";
+  }
 }

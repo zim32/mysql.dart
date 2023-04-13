@@ -5,6 +5,13 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:mysql_client/mysql_protocol.dart';
 import 'package:mysql_client/exception.dart';
+import 'package:logger/logger.dart';
+
+final loggingLevel = Level.debug;
+
+final logger = Logger(
+  printer: PrettyPrinter(),
+);
 
 enum _MySQLConnectionState {
   fresh,
@@ -79,7 +86,10 @@ class MySQLConnection {
     String? databaseName,
     String collation = 'utf8mb4_general_ci',
   }) async {
+    Logger.level = loggingLevel;
+    logger.d("Establishing socket connection");
     final Socket socket = await Socket.connect(host, port);
+    logger.d("Socket connection established");
 
     if (socket.address.type != InternetAddressType.unix) {
       // no support for extensions on sockets
@@ -167,6 +177,9 @@ class MySQLConnection {
   }
 
   Future<void> _processSocketData(Uint8List data) async {
+    logger.d("Processing socket data. Current state is $_state");
+    logger.v(data);
+
     if (_state == _MySQLConnectionState.closed) {
       // don't process any data if state is closed
       return;
@@ -183,9 +196,12 @@ class MySQLConnection {
         final authSwitchPacket =
             MySQLPacket.decodeAuthSwitchRequestPacket(data);
 
+        logger.d("Processing AuthSwitchRequestPacket");
+
         final payload =
             authSwitchPacket.payload as MySQLPacketAuthSwitchRequest;
 
+        logger.d("Auth plugin name is: ${payload.authPluginName}");
         _activeAuthPluginName = payload.authPluginName;
 
         switch (payload.authPluginName) {
@@ -216,6 +232,7 @@ class MySQLConnection {
       try {
         packet = MySQLPacket.decodeGenericPacket(data);
       } catch (e) {
+        logger.e("Skipping invalid packet: $data");
         rethrow;
       }
 
@@ -262,6 +279,7 @@ class MySQLConnection {
       }
 
       if (packet.isOkPacket()) {
+        logger.i("Got OK packet. Connection established");
         _state = _MySQLConnectionState.connectionEstablished;
         _connected = true;
       }
@@ -317,6 +335,7 @@ class MySQLConnection {
   }
 
   Future<void> _processInitialHandshake(Uint8List data) async {
+    logger.d("Processing initial handshake");
     // First packet can be error packet
     if (MySQLPacket.detectPacketType(data) == MySQLGenericPacketType.error) {
       final packet = MySQLPacket.decodeGenericPacket(data);
@@ -331,6 +350,7 @@ class MySQLConnection {
       throw MySQLClientException("Expected MySQLPacketInitialHandshake packet");
     }
 
+    logger.d(payload);
     _serverCapabilities = payload.capabilityFlags;
 
     if (_secure && (_serverCapabilities & mysqlCapFlagClientSsl == 0)) {
@@ -342,6 +362,8 @@ class MySQLConnection {
     if (_secure) {
       // it secure = true, initiate ssl connection
       Future<void> initiateSSL() async {
+        logger.d("Initiating SSL connection");
+
         final responsePayload = MySQLPacketSSLRequest.createDefault(
           initialHandshakePayload: payload,
           connectWithDB: _databaseName != null,
@@ -361,6 +383,8 @@ class MySQLConnection {
           _socket,
           onBadCertificate: (certificate) => true,
         );
+
+        logger.d("SSL connection established");
 
         // switch socket
         _socket = secureSocket;
@@ -383,6 +407,8 @@ class MySQLConnection {
     final authPluginName = payload.authPluginName;
     _activeAuthPluginName = authPluginName;
 
+    logger.d("Auth plugin name is: $authPluginName");
+
     switch (authPluginName) {
       case 'mysql_native_password':
         final responsePayload =
@@ -402,6 +428,9 @@ class MySQLConnection {
 
         _state = _MySQLConnectionState.initialHandshakeResponseSend;
         _socket.add(responsePacket.encode());
+
+        logger.d("Native password response send");
+
         break;
       case 'caching_sha2_password':
         final responsePayload =
@@ -421,6 +450,9 @@ class MySQLConnection {
 
         _state = _MySQLConnectionState.initialHandshakeResponseSend;
         _socket.add(responsePacket.encode());
+
+        logger.d("Caching sha2 password response send");
+
         break;
       default:
         throw MySQLClientException(
@@ -429,6 +461,7 @@ class MySQLConnection {
   }
 
   void _processCommandResponse(Uint8List data) {
+    logger.d("Processing command response packet");
     assert(_responseCallback != null);
     _responseCallback!(data);
   }
