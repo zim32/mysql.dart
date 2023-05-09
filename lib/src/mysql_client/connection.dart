@@ -32,6 +32,7 @@ class MySQLConnection {
   final List<void Function()> _onCloseCallbacks = [];
   bool _inTransaction = false;
   final bool _secure;
+  final SecurityContext? _securityContext;
   final List<int> _incompleteBufferData = [];
   Object? _lastError;
   int _serverCapabilities = 0;
@@ -44,12 +45,14 @@ class MySQLConnection {
     required String password,
     required String collation,
     bool secure = true,
+    SecurityContext? securityContext,
     String? databaseName,
   })  : _socket = socket,
         _username = username,
         _password = password,
         _databaseName = databaseName,
         _secure = secure,
+        _securityContext = securityContext,
         _collation = collation;
 
   /// Creates connection with provided options.
@@ -359,7 +362,8 @@ class MySQLConnection {
 
         final secureSocket = await SecureSocket.secure(
           _socket,
-          onBadCertificate: (certificate) => true,
+          context: _securityContext,
+          onBadCertificate: (certificate) => _securityContext == null,
         );
 
         // switch socket
