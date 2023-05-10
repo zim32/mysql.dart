@@ -79,6 +79,7 @@ class MySQLConnection {
     required String userName,
     required String password,
     bool secure = true,
+    SecurityContext? securityContext,
     String? databaseName,
     String collation = 'utf8mb4_general_ci',
   }) async {
@@ -95,6 +96,7 @@ class MySQLConnection {
       password: password,
       databaseName: databaseName,
       secure: secure,
+      securityContext: securityContext,
       collation: collation,
     );
 

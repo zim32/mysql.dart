@@ -126,6 +126,7 @@ class MySQLConnectionPool {
         password: _password,
         databaseName: databaseName,
         secure: secure,
+        securityContext: securityContext,
         collation: collation,
       );
 
